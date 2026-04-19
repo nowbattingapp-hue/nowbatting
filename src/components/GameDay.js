@@ -9,7 +9,7 @@ export default function GameDay({ players }) {
   const [phase, setPhase] = useState(null);
   const stopAnnouncementRef = useRef(null);
   const hypeSoundRef = useRef(null);
-  const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, connected, isPremium, sdkReady } = useSpotify();
+  const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
 
   // Warm up the hype sound bytes as soon as the Game Day tab is shown
   useEffect(() => { preloadHypeSound(); }, []);
@@ -30,6 +30,11 @@ export default function GameDay({ players }) {
     if (activeId === player.id) { stopEverything(); return; }
     stopEverything();
     setActiveId(player.id);
+
+    // On iOS, pre-unlock the walk-up audio element RIGHT NOW while we're still
+    // inside the synchronous user-gesture call stack. iOS blocks audio.play()
+    // called from async callbacks (like onHalfway via timeupdate).
+    if (player.walkUpSong) primeWalkUpAudio(player.walkUpSong);
 
     // Mark as loading before the async call so stopEverything can signal cancellation.
     // The .then() below checks: if hypeSoundRef.current is null, stopEverything() ran
@@ -141,9 +146,9 @@ export default function GameDay({ players }) {
       {/* Spotify status */}
       {connected && (
         <div style={{ padding: '8px 16px', background: '#0f0f0f', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sdkReady ? '#1DB954' : '#ffd700', display: 'inline-block', animation: sdkReady ? 'none' : 'blink 1.5s ease infinite' }} />
-          <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: sdkReady ? '#1DB954' : '#888' }}>
-            {sdkReady ? 'Spotify Ready' : isPremium ? 'Spotify Connecting…' : 'Spotify — Premium Required'}
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sdkReady || isIOS ? '#1DB954' : '#ffd700', display: 'inline-block', animation: sdkReady || isIOS ? 'none' : 'blink 1.5s ease infinite' }} />
+          <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: sdkReady ? '#1DB954' : isIOS ? '#1DB954' : '#888' }}>
+            {sdkReady ? 'Spotify Ready' : isIOS ? 'Spotify — Preview Mode' : isPremium ? 'Spotify Connecting…' : 'Spotify — Premium Required'}
           </span>
         </div>
       )}

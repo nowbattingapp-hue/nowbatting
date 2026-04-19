@@ -80,28 +80,32 @@ export async function startHypeSound(volume = 0.55) {
     sourceNode = null;
   };
 
+  // CRITICAL for iOS: create AudioContext synchronously in the user-gesture call
+  // stack, BEFORE any await. On iOS, an AudioContext created after an await is
+  // immediately suspended and cannot play audio until another tap.
+  try {
+    audioCtx = new AudioContext();
+    console.log('[HypeSound] AudioContext state:', audioCtx.state, '| sampleRate:', audioCtx.sampleRate);
+    // Fire-and-forget resume — don't await (would break iOS gesture chain)
+    if (audioCtx.state === 'suspended') {
+      console.log('[HypeSound] AudioContext suspended — calling resume() (fire-and-forget)');
+      audioCtx.resume();
+    }
+    gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gainNode.connect(audioCtx.destination);
+  } catch (e) {
+    console.error('[HypeSound] AudioContext creation failed:', e.message);
+    return null;
+  }
+
   try {
     const bytes = await fetchHypeBytes();
 
     if (stopped) {
-      console.log('[HypeSound] Cancelled before AudioContext created');
+      console.log('[HypeSound] Cancelled before decode');
       return null;
     }
-
-    console.log('[HypeSound] Creating AudioContext…');
-    audioCtx = new AudioContext();
-    console.log('[HypeSound] AudioContext state:', audioCtx.state, '| sampleRate:', audioCtx.sampleRate);
-
-    // Some browsers start AudioContext in "suspended" state even after a tap.
-    if (audioCtx.state === 'suspended') {
-      console.log('[HypeSound] AudioContext suspended — calling resume()');
-      await audioCtx.resume();
-      console.log('[HypeSound] AudioContext state after resume:', audioCtx.state);
-    }
-
-    gainNode = audioCtx.createGain();
-    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-    gainNode.connect(audioCtx.destination);
 
     console.log('[HypeSound] Decoding audio data, byteLength:', bytes.byteLength);
     // .slice(0) copies the bytes; decodeAudioData would otherwise detach/corrupt the cache
@@ -110,7 +114,6 @@ export async function startHypeSound(volume = 0.55) {
 
     if (stopped) {
       console.log('[HypeSound] Cancelled after decode');
-      audioCtx.close().catch(() => {});
       return null;
     }
 
@@ -137,7 +140,7 @@ export async function startHypeSound(volume = 0.55) {
     };
   } catch (e) {
     console.error('[HypeSound] startHypeSound() failed:', e.name, e.message);
-    if (audioCtx) audioCtx.close().catch(() => {});
+    cleanup('error');
     return null;
   }
 }

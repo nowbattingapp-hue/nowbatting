@@ -3,6 +3,11 @@ import { getStoredToken, refreshAccessToken, clearTokens, hasRefreshToken } from
 
 const SpotifyContext = createContext(null);
 
+// Detect iOS (iPhone/iPad/iPod) — Spotify Web Playback SDK is not supported on iOS.
+// iPadOS 13+ reports as MacIntel with touch points, so we check both.
+const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 export function useSpotify() {
   return useContext(SpotifyContext);
 }
@@ -22,13 +27,19 @@ export function SpotifyProvider({ children }) {
 
   const playerRef = useRef(null);
 
-  // Web Audio API refs for preview-URL path volume control
+  // Web Audio API refs for preview-URL path volume control (non-iOS)
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
   const walkUpAudioRef = useRef(null);
 
-  // SDK ramp interval ref
+  // SDK ramp interval ref (non-iOS premium path)
   const sdkRampIntervalRef = useRef(null);
+
+  // iOS-specific refs
+  // iosWalkUpAudioRef holds a pre-unlocked Audio element primed in the tap gesture
+  const iosWalkUpAudioRef = useRef(null);
+  // iosRampRef holds the setInterval ID for iOS volume ramping
+  const iosRampRef = useRef(null);
 
   const setIsPremiumBoth = (val) => { isPremiumRef.current = val; setIsPremium(val); };
   const setSdkReadyBoth  = (val) => { sdkReadyRef.current  = val; setSdkReady(val);  };
@@ -69,9 +80,15 @@ export function SpotifyProvider({ children }) {
     }
   }
 
-  // Load Web Playback SDK once we have a token
+  // Load Web Playback SDK once we have a token.
+  // Skipped on iOS — the SDK is not supported there at all.
   useEffect(() => {
     if (!token) return;
+
+    if (isIOS) {
+      console.log('[Spotify SDK] iOS detected — Web Playback SDK not supported, skipping load');
+      return;
+    }
 
     function initPlayer() {
       if (playerRef.current) {
@@ -154,6 +171,13 @@ export function SpotifyProvider({ children }) {
     }
   }
 
+  function clearIOSRamp() {
+    if (iosRampRef.current) {
+      clearInterval(iosRampRef.current);
+      iosRampRef.current = null;
+    }
+  }
+
   function closeAudioCtx() {
     if (walkUpAudioRef.current) {
       walkUpAudioRef.current.pause();
@@ -171,11 +195,35 @@ export function SpotifyProvider({ children }) {
 
   const stopWalkUp = useCallback(() => {
     clearRamp();
+    clearIOSRamp();
+    // Clean up iOS pre-primed audio if it was never used
+    if (iosWalkUpAudioRef.current) {
+      iosWalkUpAudioRef.current.audio?.pause();
+      iosWalkUpAudioRef.current = null;
+    }
     closeAudioCtx();
     if (playerRef.current && sdkReadyRef.current) {
       playerRef.current.pause().catch(() => {});
     }
   }, []); // stable — reads from refs
+
+  /**
+   * iOS only: call this synchronously in the user-gesture handler to pre-unlock
+   * an Audio element for the walk-up song. iOS blocks audio.play() outside of a
+   * direct user gesture; by playing-then-immediately-pausing here, the element
+   * becomes "unlocked" and can be .play()'d again later from onHalfway.
+   */
+  const primeWalkUpAudio = useCallback((track) => {
+    if (!isIOS || !track?.previewUrl) return;
+    const audio = new Audio(track.previewUrl);
+    audio.volume = 0;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }).catch(() => {}); // best-effort unlock; errors here are non-fatal
+    iosWalkUpAudioRef.current = { audio, url: track.previewUrl };
+    console.log('[Spotify iOS] Walk-up audio pre-unlocked for:', track.name);
+  }, []);
 
   // Start walk-up song at a soft volume (for crossfade with announcement)
   const startWalkUpSoft = useCallback(async (track, initialVol = 0.15) => {
@@ -186,8 +234,37 @@ export function SpotifyProvider({ children }) {
     const did     = deviceIdRef.current;
     const premium = isPremiumRef.current;
 
-    console.log('[Spotify] startWalkUpSoft:', track.name, '| premium:', premium, '| sdkReady:', ready, '| deviceId:', did);
+    console.log('[Spotify] startWalkUpSoft:', track.name, '| iOS:', isIOS, '| premium:', premium, '| sdkReady:', ready, '| deviceId:', did);
 
+    // ── iOS path ──────────────────────────────────────────────────────────────
+    // Bypass Web Audio API entirely. Use the pre-unlocked Audio element that was
+    // primed in the tap handler, and control volume via audio.volume directly.
+    if (isIOS) {
+      if (!track.previewUrl) {
+        console.warn('[Spotify iOS] No preview URL for:', track.name);
+        return;
+      }
+      const primed = iosWalkUpAudioRef.current;
+      let audio;
+      if (primed?.url === track.previewUrl) {
+        audio = primed.audio;
+        iosWalkUpAudioRef.current = null;
+        console.log('[Spotify iOS] Using pre-unlocked audio element');
+      } else {
+        // Priming didn't happen or URL mismatch — create a new element.
+        // play() may fail on older iOS here, but it's the best we can do.
+        audio = new Audio(track.previewUrl);
+        console.warn('[Spotify iOS] No pre-unlocked audio found — created new element (may be blocked)');
+      }
+      audio.volume = initialVol;
+      audio.currentTime = 0;
+      walkUpAudioRef.current = audio;
+      await audio.play().catch(e => console.error('[Spotify iOS] Preview play error:', e.message));
+      console.log('[Spotify iOS] Walk-up started at volume', initialVol);
+      return;
+    }
+
+    // ── Non-iOS paths ─────────────────────────────────────────────────────────
     const t = await getToken();
     if (!t) { console.warn('[Spotify] No token'); return; }
 
@@ -244,7 +321,28 @@ export function SpotifyProvider({ children }) {
     const premium = isPremiumRef.current;
     const ready   = sdkReadyRef.current;
 
-    console.log('[Spotify] rampWalkUpToFull | premium:', premium, '| sdkReady:', ready);
+    console.log('[Spotify] rampWalkUpToFull | iOS:', isIOS, '| premium:', premium, '| sdkReady:', ready);
+
+    // ── iOS path: interval ramp on audio.volume ──────────────────────────────
+    if (isIOS && walkUpAudioRef.current) {
+      const audio = walkUpAudioRef.current;
+      const startVol = audio.volume;
+      const steps = 20;
+      const intervalMs = (durationSec * 1000) / steps;
+      const volStep = (1.0 - startVol) / steps;
+      let step = 0;
+      clearIOSRamp();
+      iosRampRef.current = setInterval(() => {
+        step++;
+        audio.volume = Math.min(startVol + volStep * step, 1.0);
+        if (step >= steps) {
+          clearInterval(iosRampRef.current);
+          iosRampRef.current = null;
+          console.log('[Spotify iOS] Volume ramp complete');
+        }
+      }, intervalMs);
+      return;
+    }
 
     if (premium && ready && playerRef.current) {
       // SDK: interval-based ramp (Web Audio scheduling not available for SDK)
@@ -305,7 +403,9 @@ export function SpotifyProvider({ children }) {
       isPremium,
       sdkReady,
       deviceId,
+      isIOS,
       search,
+      primeWalkUpAudio,
       startWalkUpSoft,
       rampWalkUpToFull,
       stopWalkUp,
