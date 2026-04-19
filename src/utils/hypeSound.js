@@ -64,6 +64,30 @@ export function preloadHypeSound() {
 export async function startHypeSound(volume = 0.55) {
   console.log('[HypeSound] startHypeSound() called, volume:', volume);
 
+  // ── Step 1: Fetch bytes WITHOUT creating an AudioContext yet ────────────────
+  //
+  // CRITICAL: Do NOT create AudioContext before this await.
+  //
+  // If the fetch fails (CORS block, network error) we return null here without
+  // ever touching AudioContext. This matters because in Safari — and some Chrome
+  // builds — creating an AudioContext and then immediately closing it (on fetch
+  // failure) CONSUMES the browser's user-gesture activation token. Once consumed,
+  // every subsequent audio.play() call (ElevenLabs announcement, walk-up song,
+  // browser TTS fallback) is blocked with NotAllowedError and NO audio plays.
+  //
+  // On iOS the bytes are pre-fetched by preloadHypeSound() on mount, so this
+  // await resolves from the in-memory cache on the very next microtask — still
+  // within the user-gesture window — and the AudioContext created right after
+  // will be in "running" state on iOS too.
+  let bytes;
+  try {
+    bytes = await fetchHypeBytes();
+  } catch (e) {
+    console.warn('[HypeSound] Bytes unavailable — hype sound skipped, gesture preserved for announcement:', e.message);
+    return null;
+  }
+
+  // ── Step 2: Bytes ready. Create AudioContext (still in gesture window). ─────
   let audioCtx = null;
   let gainNode = null;
   let sourceNode = null;
@@ -80,17 +104,9 @@ export async function startHypeSound(volume = 0.55) {
     sourceNode = null;
   };
 
-  // CRITICAL for iOS: create AudioContext synchronously in the user-gesture call
-  // stack, BEFORE any await. On iOS, an AudioContext created after an await is
-  // immediately suspended and cannot play audio until another tap.
   try {
     audioCtx = new AudioContext();
     console.log('[HypeSound] AudioContext state:', audioCtx.state, '| sampleRate:', audioCtx.sampleRate);
-    // Fire-and-forget resume — don't await (would break iOS gesture chain)
-    if (audioCtx.state === 'suspended') {
-      console.log('[HypeSound] AudioContext suspended — calling resume() (fire-and-forget)');
-      audioCtx.resume();
-    }
     gainNode = audioCtx.createGain();
     gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
     gainNode.connect(audioCtx.destination);
@@ -99,19 +115,13 @@ export async function startHypeSound(volume = 0.55) {
     return null;
   }
 
+  // ── Step 3: Decode and play ────────────────────────────────────────────────
   try {
-    const bytes = await fetchHypeBytes();
+    if (stopped) { cleanup('cancelled before decode'); return null; }
 
-    if (stopped) {
-      console.log('[HypeSound] Cancelled before decode');
-      return null;
-    }
-
-    // Re-check context state after the async fetch. Some desktop Chrome versions
-    // start AudioContext suspended even from a click handler; ensure it's running
-    // before decoding so sourceNode.start() produces sound immediately.
+    // Ensure context is running — some browsers suspend even after a tap.
     if (audioCtx.state === 'suspended') {
-      console.log('[HypeSound] AudioContext still suspended after fetch — awaiting resume()');
+      console.log('[HypeSound] AudioContext suspended — awaiting resume()');
       await audioCtx.resume();
       console.log('[HypeSound] AudioContext state after resume:', audioCtx.state);
     }
@@ -121,10 +131,7 @@ export async function startHypeSound(volume = 0.55) {
     const decoded = await audioCtx.decodeAudioData(bytes.slice(0));
     console.log('[HypeSound] Decoded OK — duration:', decoded.duration.toFixed(2), 's, channels:', decoded.numberOfChannels, ', sampleRate:', decoded.sampleRate);
 
-    if (stopped) {
-      console.log('[HypeSound] Cancelled after decode');
-      return null;
-    }
+    if (stopped) { cleanup('cancelled after decode'); return null; }
 
     sourceNode = audioCtx.createBufferSource();
     sourceNode.buffer = decoded;

@@ -4,13 +4,18 @@ import { getStoredToken, refreshAccessToken, clearTokens, hasRefreshToken } from
 const SpotifyContext = createContext(null);
 
 // Detect iOS (iPhone/iPad/iPod) — Spotify Web Playback SDK is not supported on iOS.
-// iPadOS 13+ fakes a Mac user agent, so we also check touch support.
-// IMPORTANT: M1/M2 Macs have navigator.maxTouchPoints = 5 (multi-touch trackpad),
-// so we cannot use maxTouchPoints alone. Instead we require 'ontouchstart' in window,
-// which is true on iPad/iPhone but false on Mac (no touchscreen).
+//
+// Pitfalls:
+//   - M1/M2 Macs: navigator.maxTouchPoints can be 5 (multi-touch trackpad)
+//   - iPadOS 13+: reports as "MacIntel" to fake a desktop UA
+//   - Safari on Mac: may have 'ontouchstart' in window via the Magic Trackpad
+//
+// Most reliable distinguisher: navigator.standalone is defined ONLY on iOS/iPadOS.
+// On macOS (including M-series) it is always undefined, even in Safari.
 const isIOS = /iPhone|iPod/.test(navigator.userAgent) ||
   /iPad/.test(navigator.userAgent) ||
-  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+  // iPadOS 13+ fakes a Mac UA — navigator.standalone is iOS-only, never macOS
+  (typeof navigator.standalone !== 'undefined' && navigator.maxTouchPoints > 1);
 
 export function useSpotify() {
   return useContext(SpotifyContext);
