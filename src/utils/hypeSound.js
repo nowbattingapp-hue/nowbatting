@@ -107,6 +107,15 @@ export async function startHypeSound(volume = 0.55) {
       return null;
     }
 
+    // Re-check context state after the async fetch. Some desktop Chrome versions
+    // start AudioContext suspended even from a click handler; ensure it's running
+    // before decoding so sourceNode.start() produces sound immediately.
+    if (audioCtx.state === 'suspended') {
+      console.log('[HypeSound] AudioContext still suspended after fetch — awaiting resume()');
+      await audioCtx.resume();
+      console.log('[HypeSound] AudioContext state after resume:', audioCtx.state);
+    }
+
     console.log('[HypeSound] Decoding audio data, byteLength:', bytes.byteLength);
     // .slice(0) copies the bytes; decodeAudioData would otherwise detach/corrupt the cache
     const decoded = await audioCtx.decodeAudioData(bytes.slice(0));

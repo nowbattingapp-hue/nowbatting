@@ -27,6 +27,7 @@ export default function GameDay({ players }) {
   }
 
   const announce = (player) => {
+    console.log('[GameDay] announce() — player:', player.name, '| isIOS:', isIOS, '| walkUpSong:', player.walkUpSong?.name ?? 'none', '| previewUrl:', player.walkUpSong?.previewUrl ? 'YES' : 'none', '| customAnnouncement:', player.customAnnouncement ? 'YES' : 'no');
     if (activeId === player.id) { stopEverything(); return; }
     stopEverything();
     setActiveId(player.id);
@@ -34,7 +35,10 @@ export default function GameDay({ players }) {
     // On iOS, pre-unlock the walk-up audio element RIGHT NOW while we're still
     // inside the synchronous user-gesture call stack. iOS blocks audio.play()
     // called from async callbacks (like onHalfway via timeupdate).
-    if (player.walkUpSong) primeWalkUpAudio(player.walkUpSong);
+    if (player.walkUpSong) {
+      console.log('[GameDay] calling primeWalkUpAudio for:', player.walkUpSong.name);
+      primeWalkUpAudio(player.walkUpSong);
+    }
 
     // Mark as loading before the async call so stopEverything can signal cancellation.
     // The .then() below checks: if hypeSoundRef.current is null, stopEverything() ran
@@ -54,7 +58,10 @@ export default function GameDay({ players }) {
     // Halfway through announcement: walk-up song sneaks in, hype fades out
     const onHalfway = () => {
       console.log('[GameDay] onHalfway — hype ref:', hypeSoundRef.current === 'loading' ? 'still loading' : hypeSoundRef.current ? 'ready' : 'null');
-      if (player.walkUpSong) startWalkUpSoft(player.walkUpSong);
+      if (player.walkUpSong) {
+        console.log('[GameDay] starting walk-up soft:', player.walkUpSong.name);
+        startWalkUpSoft(player.walkUpSong);
+      }
       const hype = hypeSoundRef.current;
       hypeSoundRef.current = null;
       if (hype && hype !== 'loading') hype.fadeOut(1.5);
@@ -77,6 +84,7 @@ export default function GameDay({ players }) {
     };
 
     if (player.customAnnouncement) {
+      console.log('[GameDay] using custom announcement recording');
       setPhase('announcing');
       const audio = new Audio(player.customAnnouncement);
 
@@ -94,8 +102,10 @@ export default function GameDay({ players }) {
       audio.play().catch(() => { stopEverything(); });
       stopAnnouncementRef.current = () => { audio.pause(); };
     } else {
+      console.log('[GameDay] calling playWithFallback (ElevenLabs)');
       setPhase('loading');
       const text = buildAnnouncementText(player);
+      console.log('[GameDay] announcement text:', text);
       const stop = playWithFallback(text, {
         onStart: () => setPhase('announcing'),
         onHalfway,
