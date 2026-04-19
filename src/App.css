@@ -1,0 +1,292 @@
+/* ─── Google Font ──────────────────────────────────────── */
+/* Anton is loaded via index.html link tag */
+
+/* ─── Animations ───────────────────────────────────────── */
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(204,17,17,0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(204,17,17,0); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes stripe-scroll {
+  from { background-position: 0 0; }
+  to   { background-position: 48px 0; }
+}
+
+/* ─── App shell ────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ─── Header ───────────────────────────────────────────── */
+.app-header {
+  background: #cc1111;
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: 'Anton', sans-serif;
+  font-size: 28px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.header-stars {
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: 3px;
+}
+
+.header-usa {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ─── Stripe bar under header ──────────────────────────── */
+.stripe-bar {
+  height: 6px;
+  background: repeating-linear-gradient(
+    to right,
+    #cc1111  0px, #cc1111  16px,
+    #ffffff 16px, #ffffff 32px,
+    #1a3a8f 32px, #1a3a8f 48px,
+    #ffffff 48px, #ffffff 64px
+  );
+  background-size: 64px 6px;
+  flex-shrink: 0;
+}
+
+/* ─── Main content ─────────────────────────────────────── */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 72px;
+}
+
+/* ─── Bottom nav ───────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: #0a0a0a;
+  border-top: 1px solid #222;
+  display: flex;
+  z-index: 100;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 0 8px;
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.nav-btn.active {
+  color: #cc1111;
+}
+
+.nav-btn.active .nav-icon {
+  filter: drop-shadow(0 0 4px rgba(204,17,17,0.7));
+}
+
+.nav-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ─── Screens ──────────────────────────────────────────── */
+.screen {
+  padding: 16px;
+  animation: slide-up 0.18s ease;
+}
+
+.screen-title {
+  font-family: 'Anton', sans-serif;
+  font-size: 28px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e8e8e8;
+  margin-bottom: 16px;
+}
+
+/* ─── Buttons ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 18px;
+  border-radius: 4px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.btn:active { transform: scale(0.96); }
+
+.btn-primary {
+  background: #cc1111;
+  color: #ffffff;
+}
+.btn-primary:hover { background: #e01313; }
+
+.btn-danger {
+  background: #7a0a0a;
+  color: #ffffff;
+  border: 1px solid #cc1111;
+}
+
+.btn-blue {
+  background: #1a3a8f;
+  color: #ffffff;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+}
+.btn-ghost:hover { border-color: #cc1111; color: #e8e8e8; }
+
+.btn-sm {
+  padding: 7px 12px;
+  font-size: 11px;
+}
+
+/* ─── Cards ────────────────────────────────────────────── */
+.card {
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #2a2a2a;
+  overflow: hidden;
+}
+
+/* ─── Player card with left-border accent ──────────────── */
+.player-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-left: 4px solid #1a3a8f;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-left-color 0.15s;
+}
+
+.player-card:hover {
+  border-left-color: #cc1111;
+}
+
+.player-card.active {
+  border-left-color: #cc1111;
+  border-color: #cc1111;
+  background: #1a0a0a;
+}
+
+/* ─── Form inputs ──────────────────────────────────────── */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.input-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #555;
+}
+
+.input-field {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #e8e8e8;
+  font-size: 16px;
+  padding: 11px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input-field:focus {
+  border-color: #cc1111;
+}
+
+.input-field::placeholder { color: #444; }
+
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23555' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 34px;
+}
+
+/* ─── Section divider ──────────────────────────────────── */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #444;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a2a;
+}
