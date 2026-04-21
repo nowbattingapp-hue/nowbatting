@@ -1,13 +1,15 @@
 import React from 'react';
 import { useSpotify } from '../contexts/SpotifyContext';
+import { useTeam } from '../context/TeamContext';
 import { initiateLogin } from '../utils/spotifyAuth';
 
 export default function Settings({ players }) {
   const { connected, isPremium, sdkReady, disconnect } = useSpotify();
+  const { updateRoster } = useTeam();
 
   const handleClearRoster = () => {
     if (window.confirm('Clear all roster data? This cannot be undone.')) {
-      localStorage.removeItem('nowbatting_roster');
+      updateRoster([]);
       window.location.reload();
     }
   };

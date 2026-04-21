@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import './App.css';
-import { useRoster } from './hooks/useRoster';
+import { useTeam } from './context/TeamContext';
 import { SpotifyProvider } from './contexts/SpotifyContext';
+import { TeamProvider } from './context/TeamContext';
 import SpotifyCallback from './components/SpotifyCallback';
 import RosterManagement from './components/RosterManagement';
 import PlayerProfile from './components/PlayerProfile';
 import GameDay from './components/GameDay';
 import Settings from './components/Settings';
+import TeamSwitcher from './components/TeamSwitcher';
 
 const TABS = [
   { id: 'gameday', label: 'Game Day', icon: '⚾' },
@@ -18,7 +20,7 @@ function AppInner() {
   const [activeTab, setActiveTab] = useState('gameday');
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [isCallback, setIsCallback] = useState(window.location.pathname === '/callback');
-  const { players, addPlayer, updatePlayer, deletePlayer } = useRoster();
+  const { roster: players, addPlayer, updatePlayer, removePlayer: deletePlayer } = useTeam();
 
   if (isCallback) {
     return (
@@ -74,6 +76,7 @@ function AppInner() {
     <div className="app">
       <header className="app-header">
         <div className="logo">NowBatting</div>
+        <TeamSwitcher />
         <div className="header-right">
           <div className="header-stars">★ ★ ★</div>
           <div className="header-usa">USA</div>
@@ -104,8 +107,10 @@ function AppInner() {
 
 export default function App() {
   return (
-    <SpotifyProvider>
-      <AppInner />
-    </SpotifyProvider>
+    <TeamProvider>
+      <SpotifyProvider>
+        <AppInner />
+      </SpotifyProvider>
+    </TeamProvider>
   );
 }
