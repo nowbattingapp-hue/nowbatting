@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 
-const POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-
 export default function RosterManagement({ players, addPlayer, deletePlayer, onSelectPlayer }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
   const [newPosition, setNewPosition] = useState('');
+  const [newNickname, setNewNickname] = useState('');
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const id = addPlayer({ name: newName.trim(), jerseyNumber: newNumber.trim(), position: newPosition });
-    setNewName(''); setNewNumber(''); setNewPosition('');
+    const id = addPlayer({ name: newName.trim(), jerseyNumber: newNumber.trim(), position: newPosition.trim(), nickname: newNickname.trim() });
+    setNewName(''); setNewNumber(''); setNewPosition(''); setNewNickname('');
     setShowAdd(false);
     onSelectPlayer(id);
   };
@@ -37,13 +36,14 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
               <label className="input-label"># Jersey</label>
               <input className="input-field" placeholder="00" value={newNumber} onChange={e => setNewNumber(e.target.value)} maxLength={3} />
             </div>
-            <div className="input-group" style={{ flex: 1 }}>
+            <div className="input-group" style={{ flex: 2 }}>
               <label className="input-label">Position</label>
-              <select className="input-field" value={newPosition} onChange={e => setNewPosition(e.target.value)}>
-                <option value="">—</option>
-                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <input className="input-field" placeholder="e.g. Shortstop, Pitcher, Catcher" value={newPosition} onChange={e => setNewPosition(e.target.value)} />
             </div>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Nickname</label>
+            <input className="input-field" placeholder="e.g. Jakey, The Rocket, Big Mike" value={newNickname} onChange={e => setNewNickname(e.target.value)} />
           </div>
           <button className="btn btn-primary" style={{ width: '100%', fontFamily: "'Anton', sans-serif", fontSize: '15px', letterSpacing: '2px' }} onClick={handleAdd}>Add Player</button>
         </div>

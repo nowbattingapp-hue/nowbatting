@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { buildAnnouncementText } from '../hooks/useSpeech';
 import { playWithFallback } from '../utils/elevenLabs';
+import { useTeam } from '../context/TeamContext';
+import { getActiveTeamId } from '../utils/teamStorage';
+import { getTeamAnnouncementSettings, resolveScript, buildAnnouncementPrompt } from '../utils/announcementScript';
 
 export default function AnnouncementPlayer({ player, onSaveRecording }) {
+  const { activeTeam } = useTeam();
   const [previewState, setPreviewState] = useState('idle'); // idle | loading | playing
   const [recording, setRecording] = useState(false);
   const [hasCustom, setHasCustom] = useState(!!player.customAnnouncement);
@@ -19,7 +23,10 @@ export default function AnnouncementPlayer({ player, onSaveRecording }) {
   // Stop preview when component unmounts
   useEffect(() => () => stopPreviewRef.current?.(), []);
 
-  const announcementText = buildAnnouncementText(player);
+  const teamId = getActiveTeamId();
+  const announceSettings = getTeamAnnouncementSettings(teamId);
+  const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
+  const announcementText = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
 
   const handlePreview = () => {
     if (previewState === 'playing' || previewState === 'loading') {

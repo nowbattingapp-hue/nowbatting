@@ -3,6 +3,9 @@ import { buildAnnouncementText } from '../hooks/useSpeech';
 import { playWithFallback } from '../utils/elevenLabs';
 import { useSpotify } from '../contexts/SpotifyContext';
 import { preloadHypeSound, startHypeSound } from '../utils/hypeSound';
+import { useTeam } from '../context/TeamContext';
+import { getActiveTeamId } from '../utils/teamStorage';
+import { getTeamAnnouncementSettings, resolveScript, buildAnnouncementPrompt } from '../utils/announcementScript';
 
 export default function GameDay({ players }) {
   const [activeId, setActiveId] = useState(null);
@@ -10,6 +13,7 @@ export default function GameDay({ players }) {
   const stopAnnouncementRef = useRef(null);
   const hypeSoundRef = useRef(null);
   const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
+  const { activeTeam } = useTeam();
 
   // Warm up the hype sound bytes as soon as the Game Day tab is shown
   useEffect(() => { preloadHypeSound(); }, []);
@@ -104,9 +108,12 @@ export default function GameDay({ players }) {
     } else {
       console.log('[GameDay] calling playWithFallback (ElevenLabs)');
       setPhase('loading');
-      const text = buildAnnouncementText(player);
-      console.log('[GameDay] announcement text:', text);
-      const stop = playWithFallback(text, {
+      const teamId = getActiveTeamId();
+      const announceSettings = getTeamAnnouncementSettings(teamId);
+      const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
+      const prompt = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+      console.log('[GameDay] announcement prompt:', prompt);
+      const stop = playWithFallback(prompt, {
         onStart: () => setPhase('announcing'),
         onHalfway,
         onEnd,

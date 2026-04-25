@@ -2,6 +2,7 @@ import React from 'react';
 import { useSpotify } from '../contexts/SpotifyContext';
 import { useTeam } from '../context/TeamContext';
 import { initiateLogin } from '../utils/spotifyAuth';
+import AnnouncementSettings from './AnnouncementSettings';
 
 export default function Settings({ players }) {
   const { connected, isPremium, sdkReady, disconnect } = useSpotify();
@@ -93,6 +94,10 @@ export default function Settings({ players }) {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '12px', padding: '0 16px' }}>
+        <AnnouncementSettings />
       </div>
 
       <div style={{ textAlign: 'center', color: '#333', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', marginTop: '20px' }}>

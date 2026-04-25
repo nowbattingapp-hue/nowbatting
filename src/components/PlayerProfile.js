@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AnnouncementPlayer from './AnnouncementPlayer';
 import { useSpotify } from '../contexts/SpotifyContext';
 
-const POSITIONS = ['', 'P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -107,11 +105,15 @@ export default function PlayerProfile({ player, updatePlayer, deletePlayer, onBa
         <input className="input-field" value={form.phoneticName} onChange={set('phoneticName')} placeholder='e.g. "Muh-KAY-luh"' />
       </div>
 
-      <div className="input-group">
-        <label className="input-label">Position</label>
-        <select className="input-field" value={form.position} onChange={set('position')}>
-          {POSITIONS.map(p => <option key={p} value={p}>{p || '— Select Position —'}</option>)}
-        </select>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="input-group" style={{ flex: 1 }}>
+          <label className="input-label">Position</label>
+          <input className="input-field" value={form.position || ''} onChange={set('position')} placeholder="e.g. Shortstop, Pitcher, Catcher" />
+        </div>
+        <div className="input-group" style={{ flex: 1 }}>
+          <label className="input-label">Nickname</label>
+          <input className="input-field" value={form.nickname || ''} onChange={set('nickname')} placeholder="e.g. Jakey, The Rocket, Big Mike" />
+        </div>
       </div>
 
       {/* Announcement section */}
