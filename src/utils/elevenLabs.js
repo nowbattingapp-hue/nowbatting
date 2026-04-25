@@ -7,7 +7,7 @@ console.log('[ElevenLabs] API key status:', _apiKey ? `present (${_apiKey.slice(
 // Session-level cache: announcement text → blob URL
 const audioCache = new Map();
 
-export async function generateAnnouncement(text) {
+export async function generateAnnouncement(text, voiceSettings) {
   if (audioCache.has(text)) {
     console.log('[ElevenLabs] Cache hit for:', text);
     return audioCache.get(text);
@@ -21,7 +21,7 @@ export async function generateAnnouncement(text) {
     body: JSON.stringify({
       text,
       model_id: MODEL_ID,
-      voice_settings: { stability: 0.45, similarity_boost: 0.75 },
+      voice_settings: voiceSettings ?? { stability: 0.45, similarity_boost: 0.75 },
     }),
   });
   console.log('[ElevenLabs] Response status:', res.status);
@@ -40,11 +40,11 @@ export async function generateAnnouncement(text) {
 // onHalfway fires when ~50% of the audio has elapsed so the caller can start the
 // walk-up song softly underneath the announcement.
 // Returns a cancel function.
-export function playWithFallback(text, { onEnd, onStart, onHalfway } = {}) {
+export function playWithFallback(text, { onEnd, onStart, onHalfway, voiceSettings } = {}) {
   let audio = null;
   let cancelled = false;
 
-  generateAnnouncement(text)
+  generateAnnouncement(text, voiceSettings)
     .then(url => {
       if (cancelled) {
         console.log('[ElevenLabs] Cancelled before playback');

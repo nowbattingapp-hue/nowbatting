@@ -111,12 +111,13 @@ export default function GameDay({ players }) {
       const teamId = getActiveTeamId();
       const announceSettings = getTeamAnnouncementSettings(teamId);
       const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
-      const prompt = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
-      console.log('[GameDay] announcement prompt:', prompt);
-      const stop = playWithFallback(prompt, {
+      const { text, voiceSettings } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+      console.log('[GameDay] announcement text:', text);
+      const stop = playWithFallback(text, {
         onStart: () => setPhase('announcing'),
         onHalfway,
         onEnd,
+        voiceSettings,
       });
       stopAnnouncementRef.current = stop;
     }

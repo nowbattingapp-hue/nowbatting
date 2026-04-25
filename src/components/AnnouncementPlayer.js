@@ -26,7 +26,7 @@ export default function AnnouncementPlayer({ player, onSaveRecording }) {
   const teamId = getActiveTeamId();
   const announceSettings = getTeamAnnouncementSettings(teamId);
   const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
-  const announcementText = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+  const { text: announcementText, voiceSettings: announcementVoiceSettings } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
 
   const handlePreview = () => {
     if (previewState === 'playing' || previewState === 'loading') {
@@ -41,6 +41,7 @@ export default function AnnouncementPlayer({ player, onSaveRecording }) {
     const stop = playWithFallback(announcementText, {
       onStart: () => setPreviewState('playing'),
       onEnd: () => setPreviewState('idle'),
+      voiceSettings: announcementVoiceSettings,
     });
     stopPreviewRef.current = stop;
   };

@@ -50,31 +50,31 @@ export function buildAnnouncementPrompt(resolvedText, deliveryStyle) {
 }
 
 function buildClassicPrompt(text) {
-  // Bob Sheppard style: slow, deliberate, dignified
-  // Add SSML-style pause markers that ElevenLabs respects
-  // Replace "..." with longer pauses, add gravitas instructions
-  const withPauses = text
-    .replace(/\.\.\./g, '<break time="0.8s"/>')
-    .replace(/!/g, '.');
-
-  return `Speak in the style of Bob Sheppard, the legendary Yankee Stadium announcer.
-Slow, clear, deliberate, dignified. Each word gets full weight.
-Measured pace with meaningful pauses. Never rushed. Classic and timeless.
-
-${withPauses}`;
+  const styled = text
+    .replace(/Now batting/gi, 'Noooow batting')
+    .replace(/\.\.\./g, '...  ');
+  return {
+    text: styled,
+    voiceSettings: { stability: 0.85, similarity_boost: 0.75, style: 0.0, use_speaker_boost: false },
+  };
 }
 
 function buildHypePrompt(text) {
-  // ESPN/stadium hype style: energetic, punchy, exciting
-  const withEnergy = text
-    .replace(/\.\.\./g, '... ')
-    .replace(/!$/g, '!!');
+  let styled = text.replace(/Now batting/gi, 'NOW BATTING');
 
-  return `Speak like an electrifying ESPN stadium announcer.
-High energy, punchy, exciting. Build anticipation on the name.
-The crowd is going wild. Make it feel like a big moment.
+  // Stretch the last vowel of the final word before any trailing punctuation
+  styled = styled.replace(/([A-Za-z]+)([^A-Za-z]*)$/, (_, word, tail) => {
+    const stretched = word.replace(/([aeiouAEIOU])(?=[^aeiouAEIOU]*$)/, '$1$1$1');
+    return stretched + tail;
+  });
 
-${withEnergy}`;
+  // Ensure ends with !!
+  styled = styled.replace(/!*$/, '!!');
+
+  return {
+    text: styled,
+    voiceSettings: { stability: 0.35, similarity_boost: 0.75, style: 0.8, use_speaker_boost: true },
+  };
 }
 
 // ─── Team settings storage helpers ───────────────────────────────────────────
