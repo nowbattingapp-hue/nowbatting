@@ -65,11 +65,26 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
   };
 
   return (
-    <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h1 className="screen-title" style={{ margin: 0 }}>Roster</h1>
-        <button className={`btn btn-sm ${showAdd ? 'btn-ghost' : 'btn-primary'}`} onClick={showAdd ? handleCancelAdd : () => setShowAdd(true)}>
-          {showAdd ? '✕ Cancel' : '+ Add'}
+    <div className="screen" style={{ paddingLeft: '16px', paddingRight: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', boxSizing: 'border-box', marginBottom: '16px' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: '22px', letterSpacing: '1px', textTransform: 'uppercase', color: '#ffffff' }}>Roster</h1>
+        <button
+          onClick={showAdd ? handleCancelAdd : () => setShowAdd(true)}
+          style={{ flex: '0 0 auto',
+            background: showAdd ? 'transparent' : '#c8102e',
+            border: showAdd ? '1px solid rgba(255,255,255,0.2)' : 'none',
+            borderRadius: 0,
+            color: '#ffffff',
+            fontFamily: "'Oswald', sans-serif",
+            fontWeight: 600,
+            fontSize: '13px',
+            letterSpacing: '1.5px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+          }}
+        >
+          {showAdd ? '✕ CANCEL' : '+ ADD PLAYER'}
         </button>
       </div>
 
@@ -158,7 +173,26 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
             )}
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%', fontFamily: "'Anton', sans-serif", fontSize: '15px', letterSpacing: '2px' }} onClick={handleAdd}>Add Player</button>
+          <button
+            onClick={handleAdd}
+            style={{
+              width: '100%',
+              background: '#c8102e',
+              border: 'none',
+              borderRadius: 0,
+              color: '#ffffff',
+              fontFamily: "'Oswald', sans-serif",
+              fontWeight: 600,
+              fontSize: '15px',
+              letterSpacing: '2px',
+              padding: '12px',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              marginTop: '4px',
+            }}
+          >
+            ADD PLAYER
+          </button>
         </div>
       )}
 
@@ -171,34 +205,91 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {players.map((player, idx) => (
-            <div key={player.id} className="player-card" style={{ display: 'flex', alignItems: 'stretch', minHeight: '60px' }} onClick={() => onSelectPlayer(player.id)}>
+            <div
+              key={player.id}
+              onClick={() => onSelectPlayer(player.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '6px',
+                minHeight: '60px',
+                overflow: 'hidden',
+                cursor: 'pointer',
+              }}
+            >
               {/* Jersey number */}
-              <div style={{ width: '52px', minHeight: '60px', background: '#111', borderRight: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontFamily: "'Anton', sans-serif", fontSize: '24px', color: '#cc1111', lineHeight: 1 }}>
+              <div style={{
+                width: '52px',
+                alignSelf: 'stretch',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <span style={{
+                  fontFamily: "'Oswald', sans-serif",
+                  fontWeight: 700,
+                  fontSize: '22px',
+                  color: '#ffffff',
+                  lineHeight: 1,
+                }}>
                   {player.jerseyNumber || idx + 1}
                 </span>
               </div>
+
               {/* Info */}
-              <div style={{ flex: 1, padding: '10px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '18px', letterSpacing: '1px', textTransform: 'uppercase', color: '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.1 }}>
+              <div style={{ flex: 1, padding: '10px 10px 10px 4px', minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "'Oswald', sans-serif",
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  textTransform: 'uppercase',
+                  color: '#ffffff',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: 1.2,
+                }}>
                   {player.name}
                 </div>
-                {(player.position || player.phoneticName) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                    {player.position && (
-                      <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', color: '#1a3a8f', background: 'rgba(26,58,143,0.15)', padding: '2px 6px', borderRadius: '2px', border: '1px solid rgba(26,58,143,0.3)' }}>
-                        {player.position}
-                      </span>
-                    )}
-                    {player.phoneticName && <span style={{ fontSize: '11px', color: '#555' }}>"{player.phoneticName}"</span>}
-                  </div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  {player.position && (
+                    <span style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontWeight: 700,
+                      fontSize: '9px',
+                      letterSpacing: '1.5px',
+                      textTransform: 'uppercase',
+                      color: '#ffffff',
+                      background: '#c8102e',
+                      borderRadius: '3px',
+                      padding: '2px 6px',
+                    }}>
+                      {player.position}
+                    </span>
+                  )}
+                  {player.walkUpSong && (
+                    <span style={{
+                      fontFamily: "'Barlow', sans-serif",
+                      fontSize: '10px',
+                      color: 'rgba(255,255,255,0.35)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '160px',
+                    }}>
+                      {player.walkUpSong.name}{player.walkUpSong.artist ? ` · ${player.walkUpSong.artist}` : ''}
+                    </span>
+                  )}
+                </div>
               </div>
+
               {/* Icons + chevron */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px' }}>
-                {player.customAnnouncement && <span style={{ fontSize: '11px', opacity: 0.4 }}>🎤</span>}
-                {player.walkUpSong && <span style={{ fontSize: '11px', opacity: 0.4 }}>🎵</span>}
-                <span style={{ color: '#333', fontSize: '18px' }}>›</span>
+                {player.customAnnouncement && <span style={{ fontSize: '11px', opacity: 0.35 }}>🎤</span>}
+                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '18px' }}>›</span>
               </div>
             </div>
           ))}

@@ -43,23 +43,21 @@ function SortablePlayerRow({ player, idx, announce, activeId, phase, connected, 
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const accentColor = idx % 2 === 0 ? '#c8102e' : '#4a90d9';
+  const activeBorderColor = thisIsWalkUp ? '#1DB954' : '#c8102e';
+
   return (
     <div ref={setNodeRef} style={style}>
-      <button
-        onClick={() => announce(player)}
+      <div
         style={{
           display: 'flex',
-          alignItems: 'stretch',
-          background: isActive ? '#1a0a0a' : '#1a1a1a',
-          border: `1px solid ${isActive ? '#cc1111' : '#2a2a2a'}`,
-          borderLeft: `4px solid ${thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#1a3a8f'}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          transition: 'all 0.15s',
+          alignItems: 'center',
+          background: isActive ? 'rgba(200,16,46,0.1)' : 'rgba(255,255,255,0.04)',
+          borderLeft: `3px solid ${isActive ? activeBorderColor : accentColor}`,
+          borderRadius: '0 6px 6px 0',
+          transition: 'background 0.15s',
           animation: thisIsAnnouncing ? 'pulse-red 1.2s ease infinite' : 'none',
-          width: '100%',
-          textAlign: 'left',
-          minHeight: '68px',
+          minHeight: '60px',
           overflow: 'hidden',
         }}
       >
@@ -69,15 +67,15 @@ function SortablePlayerRow({ player, idx, announce, activeId, phase, connected, 
           {...listeners}
           onClick={e => e.stopPropagation()}
           style={{
-            width: '32px',
-            minHeight: '68px',
+            width: '28px',
+            alignSelf: 'stretch',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
             cursor: 'grab',
-            color: '#444',
-            fontSize: '14px',
+            color: 'rgba(255,255,255,0.2)',
+            fontSize: '12px',
             touchAction: 'none',
           }}
         >
@@ -86,59 +84,81 @@ function SortablePlayerRow({ player, idx, announce, activeId, phase, connected, 
 
         {/* Jersey number */}
         <div style={{
-          width: '56px',
-          minHeight: '68px',
+          width: '40px',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0,
-          background: thisIsWalkUp ? '#0d2a0d' : isActive ? '#2a0000' : '#111',
-          borderRight: `1px solid ${isActive ? '#cc1111' : '#222'}`,
         }}>
-          <span style={{ fontFamily: "'Anton', sans-serif", fontSize: thisIsLoading ? '18px' : '28px', color: thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#888', lineHeight: 1 }}>
+          <span style={{
+            fontFamily: "'Oswald', sans-serif",
+            fontWeight: 700,
+            fontSize: '20px',
+            color: thisIsWalkUp ? '#1DB954' : isActive ? '#c8102e' : '#ffffff',
+            lineHeight: 1,
+          }}>
             {thisIsLoading ? '…' : thisIsAnnouncing ? '🔊' : thisIsWalkUp ? '🎵' : (player.jerseyNumber || idx + 1)}
           </span>
         </div>
 
         {/* Player info */}
-        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '22px', letterSpacing: '1px', textTransform: 'uppercase', color: isActive ? '#ffffff' : '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.1 }}>
+        <div style={{ flex: 1, padding: '10px 10px 10px 6px', minWidth: 0 }}>
+          <div style={{
+            fontFamily: "'Oswald', sans-serif",
+            fontWeight: 600,
+            fontSize: '14px',
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+            color: '#ffffff',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            lineHeight: 1.2,
+          }}>
             {player.name}
           </div>
           {player.walkUpSong && !thisIsWalkUp && (
-            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
+            <div style={{
+              fontFamily: "'Barlow', sans-serif",
+              fontSize: '10px',
+              color: 'rgba(255,255,255,0.35)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginTop: '2px',
+            }}>
               {player.walkUpSong.name}{player.walkUpSong.artist ? ` · ${player.walkUpSong.artist}` : ''}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-            {player.position && (
-              <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', color: '#1a3a8f', background: 'rgba(26,58,143,0.15)', padding: '2px 6px', borderRadius: '2px', border: '1px solid rgba(26,58,143,0.3)' }}>
-                {player.position}
-              </span>
-            )}
-            {thisIsWalkUp && player.walkUpSong && (
-              <span style={{ fontSize: '11px', color: '#1DB954', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                ♫ {player.walkUpSong.name}
-              </span>
-            )}
-            {!isActive && (
-              <span style={{ display: 'flex', gap: '4px', opacity: 0.4, fontSize: '12px' }}>
-                {player.customAnnouncement && '🎤'}
-                {player.walkUpSong && connected && '🎵'}
-              </span>
-            )}
-          </div>
+          {thisIsWalkUp && player.walkUpSong && (
+            <div style={{ fontSize: '10px', color: '#1DB954', marginTop: '2px', fontFamily: "'Barlow', sans-serif" }}>
+              ♫ {player.walkUpSong.name}
+            </div>
+          )}
         </div>
 
-        {/* Right indicator */}
-        {isActive && (
-          <div style={{ display: 'flex', alignItems: 'center', paddingRight: '14px' }}>
-            <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '10px', letterSpacing: '1px', color: thisIsWalkUp ? '#1DB954' : '#cc1111', textTransform: 'uppercase', animation: thisIsAnnouncing ? 'blink 0.8s ease infinite' : 'none' }}>
-              {thisIsLoading ? '...' : thisIsAnnouncing ? 'LIVE' : 'MUSIC'}
-            </div>
-          </div>
-        )}
-      </button>
+        {/* Play / Stop button */}
+        <div style={{ paddingRight: '10px', flexShrink: 0 }}>
+          <button
+            onClick={() => announce(player)}
+            style={{
+              background: '#c8102e',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#ffffff',
+              fontFamily: "'Oswald', sans-serif",
+              fontWeight: 600,
+              fontSize: '10px',
+              letterSpacing: '1px',
+              padding: '5px 10px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isActive ? '■ STOP' : '▶ PLAY'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

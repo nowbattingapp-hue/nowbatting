@@ -27,7 +27,7 @@ export default function Settings({ players }) {
   };
 
   return (
-    <div className="screen">
+    <div className="screen" style={{ paddingLeft: '16px', paddingRight: '16px' }}>
       <h1 className="screen-title">Settings</h1>
 
       {/* App stats */}

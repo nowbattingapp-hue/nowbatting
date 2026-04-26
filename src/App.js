@@ -20,7 +20,7 @@ function AppInner() {
   const [activeTab, setActiveTab] = useState('gameday');
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [isCallback, setIsCallback] = useState(window.location.pathname === '/callback');
-  const { roster: players, addPlayer, updatePlayer, removePlayer: deletePlayer } = useTeam();
+  const { roster: players, addPlayer, updatePlayer, removePlayer: deletePlayer, activeTeam } = useTeam();
 
   if (isCallback) {
     return (
@@ -72,20 +72,44 @@ function AppInner() {
 
   const currentTab = activeTab === 'profile' ? 'roster' : activeTab;
 
+  const teamName = activeTeam?.name || 'MY TEAM';
+
   return (
     <div className="app">
+      {/* Ticker bar */}
+      <div className="ticker-bar">
+        NOW BATTING ⚾ {teamName.toUpperCase()} ⚾ GAME DAY
+      </div>
+
+      {/* Header */}
       <header className="app-header">
-        <div className="logo">NowBatting</div>
-        <TeamSwitcher />
-        <div className="header-right">
-          <div className="header-stars">★ ★ ★</div>
-          <div className="header-usa">USA</div>
+        <div className="logo">
+          Now<span style={{ color: '#c8102e' }}>Batting</span>
         </div>
+        <TeamSwitcher />
       </header>
-      <div className="stripe-bar" />
-      <main className="app-content">
+
+      {/* Tab bar */}
+      <nav className="tab-bar">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-btn ${currentTab === tab.id ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab(tab.id);
+              if (tab.id !== 'roster') setSelectedPlayerId(null);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      <main className="app-content" style={{ width: '100%', boxSizing: 'border-box' }}>
         {renderContent()}
       </main>
+
+      {/* Bottom nav (keep for mobile navigation) */}
       <nav className="bottom-nav">
         {TABS.map(tab => (
           <button
