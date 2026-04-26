@@ -1,4 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSpotify } from '../contexts/SpotifyContext';
+
+function useDebounce(value, delay) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 
 export default function RosterManagement({ players, addPlayer, deletePlayer, onSelectPlayer }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -6,20 +16,59 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
   const [newNumber, setNewNumber] = useState('');
   const [newPosition, setNewPosition] = useState('');
   const [newNickname, setNewNickname] = useState('');
+  const [newWalkUpSong, setNewWalkUpSong] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const debouncedQuery = useDebounce(searchQuery, 400);
+  const { connected, search } = useSpotify();
+
+  useEffect(() => {
+    if (!debouncedQuery.trim() || !connected) { setSearchResults([]); return; }
+    setSearching(true);
+    search(debouncedQuery).then(results => {
+      setSearchResults(results);
+      setSearching(false);
+    });
+  }, [debouncedQuery, connected, search]);
+
+  const handleSelectTrack = (track) => {
+    setNewWalkUpSong({
+      id: track.id,
+      name: track.name,
+      artist: track.artists?.[0]?.name || '',
+      albumArt: track.album?.images?.[2]?.url || track.album?.images?.[0]?.url || null,
+      previewUrl: track.preview_url,
+    });
+    setSearchQuery('');
+    setSearchResults([]);
+  };
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const id = addPlayer({ name: newName.trim(), jerseyNumber: newNumber.trim(), position: newPosition.trim(), nickname: newNickname.trim() });
+    const id = addPlayer({
+      name: newName.trim(),
+      jerseyNumber: newNumber.trim(),
+      position: newPosition.trim(),
+      nickname: newNickname.trim(),
+      walkUpSong: newWalkUpSong,
+    });
     setNewName(''); setNewNumber(''); setNewPosition(''); setNewNickname('');
+    setNewWalkUpSong(null); setSearchQuery(''); setSearchResults([]);
     setShowAdd(false);
-    onSelectPlayer(id);
+  };
+
+  const handleCancelAdd = () => {
+    setShowAdd(false);
+    setNewName(''); setNewNumber(''); setNewPosition(''); setNewNickname('');
+    setNewWalkUpSong(null); setSearchQuery(''); setSearchResults([]);
   };
 
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h1 className="screen-title" style={{ margin: 0 }}>Roster</h1>
-        <button className={`btn btn-sm ${showAdd ? 'btn-ghost' : 'btn-primary'}`} onClick={() => setShowAdd(!showAdd)}>
+        <button className={`btn btn-sm ${showAdd ? 'btn-ghost' : 'btn-primary'}`} onClick={showAdd ? handleCancelAdd : () => setShowAdd(true)}>
           {showAdd ? '✕ Cancel' : '+ Add'}
         </button>
       </div>
@@ -45,6 +94,70 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
             <label className="input-label">Nickname</label>
             <input className="input-field" placeholder="e.g. Jakey, The Rocket, Big Mike" value={newNickname} onChange={e => setNewNickname(e.target.value)} />
           </div>
+
+          {/* Walk-Up Song */}
+          <div className="input-group">
+            <label className="input-label">Walk-Up Song</label>
+            {!connected ? (
+              <div style={{ fontSize: '12px', color: '#555', padding: '8px 0' }}>
+                Connect Spotify in Settings to add a walk-up song
+              </div>
+            ) : newWalkUpSong ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0d1f0d', border: '1px solid #1a4a1a', borderRadius: '4px', padding: '8px 10px' }}>
+                {newWalkUpSong.albumArt && (
+                  <img src={newWalkUpSong.albumArt} alt="" style={{ width: '36px', height: '36px', borderRadius: '4px', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {newWalkUpSong.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#1DB954', marginTop: '2px' }}>{newWalkUpSong.artist}</div>
+                </div>
+                <button className="btn btn-sm btn-danger" onClick={() => { setNewWalkUpSong(null); }}>✕</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  className="input-field"
+                  placeholder="Search Spotify tracks..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                {searching && (
+                  <div style={{ textAlign: 'center', padding: '8px', color: '#555', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Searching...</div>
+                )}
+                {searchResults.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '200px', overflowY: 'auto', marginTop: '6px' }}>
+                    {searchResults.map(track => (
+                      <button
+                        key={track.id}
+                        onClick={() => handleSelectTrack(track)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          background: '#111', border: '1px solid #2a2a2a',
+                          borderRadius: '4px', padding: '8px 10px',
+                          cursor: 'pointer', textAlign: 'left', width: '100%',
+                        }}
+                      >
+                        {track.album?.images?.[2]?.url && (
+                          <img src={track.album.images[2].url} alt="" style={{ width: '36px', height: '36px', borderRadius: '4px', flexShrink: 0 }} />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: '700', fontSize: '13px', color: '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {track.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>
+                            {track.artists?.[0]?.name}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           <button className="btn btn-primary" style={{ width: '100%', fontFamily: "'Anton', sans-serif", fontSize: '15px', letterSpacing: '2px' }} onClick={handleAdd}>Add Player</button>
         </div>
       )}

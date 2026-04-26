@@ -37,7 +37,7 @@ export function preloadHypeSound() {
  * Must be called inside a user-gesture handler so AudioContext is allowed.
  * Pass a url to load audio from a file instead of the embedded base64 crowd sound.
  */
-export async function startHypeSound(volume = 0.55, url = null) {
+export async function startHypeSound(volume = 0.25, url = null) {
   console.log('[HypeSound] startHypeSound() called, volume:', volume, '| url:', url ?? '(embedded)');
 
   // ── Step 1: Get bytes ────────────────────────────────────────────────────────

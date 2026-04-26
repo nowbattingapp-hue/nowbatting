@@ -7,6 +7,141 @@ import { HYPE_SOUNDS, getTeamHypeSound } from '../utils/hypeSounds';
 import { useTeam } from '../context/TeamContext';
 import { getActiveTeamId } from '../utils/teamStorage';
 import { getTeamAnnouncementSettings, resolveScript, buildAnnouncementPrompt } from '../utils/announcementScript';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortablePlayerRow({ player, idx, announce, activeId, phase, connected, dragOverlay }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: player.id });
+
+  const isActive = activeId === player.id;
+  const thisIsLoading = isActive && phase === 'loading';
+  const thisIsAnnouncing = isActive && phase === 'announcing';
+  const thisIsWalkUp = isActive && phase === 'walkup';
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <button
+        onClick={() => announce(player)}
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          background: isActive ? '#1a0a0a' : '#1a1a1a',
+          border: `1px solid ${isActive ? '#cc1111' : '#2a2a2a'}`,
+          borderLeft: `4px solid ${thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#1a3a8f'}`,
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.15s',
+          animation: thisIsAnnouncing ? 'pulse-red 1.2s ease infinite' : 'none',
+          width: '100%',
+          textAlign: 'left',
+          minHeight: '68px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: '32px',
+            minHeight: '68px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            cursor: 'grab',
+            color: '#444',
+            fontSize: '14px',
+            touchAction: 'none',
+          }}
+        >
+          ☰
+        </div>
+
+        {/* Jersey number */}
+        <div style={{
+          width: '56px',
+          minHeight: '68px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          background: thisIsWalkUp ? '#0d2a0d' : isActive ? '#2a0000' : '#111',
+          borderRight: `1px solid ${isActive ? '#cc1111' : '#222'}`,
+        }}>
+          <span style={{ fontFamily: "'Anton', sans-serif", fontSize: thisIsLoading ? '18px' : '28px', color: thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#888', lineHeight: 1 }}>
+            {thisIsLoading ? '…' : thisIsAnnouncing ? '🔊' : thisIsWalkUp ? '🎵' : (player.jerseyNumber || idx + 1)}
+          </span>
+        </div>
+
+        {/* Player info */}
+        <div style={{ flex: 1, padding: '12px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '22px', letterSpacing: '1px', textTransform: 'uppercase', color: isActive ? '#ffffff' : '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.1 }}>
+            {player.name}
+          </div>
+          {player.walkUpSong && !thisIsWalkUp && (
+            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
+              {player.walkUpSong.name}{player.walkUpSong.artist ? ` · ${player.walkUpSong.artist}` : ''}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+            {player.position && (
+              <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', color: '#1a3a8f', background: 'rgba(26,58,143,0.15)', padding: '2px 6px', borderRadius: '2px', border: '1px solid rgba(26,58,143,0.3)' }}>
+                {player.position}
+              </span>
+            )}
+            {thisIsWalkUp && player.walkUpSong && (
+              <span style={{ fontSize: '11px', color: '#1DB954', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+                ♫ {player.walkUpSong.name}
+              </span>
+            )}
+            {!isActive && (
+              <span style={{ display: 'flex', gap: '4px', opacity: 0.4, fontSize: '12px' }}>
+                {player.customAnnouncement && '🎤'}
+                {player.walkUpSong && connected && '🎵'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right indicator */}
+        {isActive && (
+          <div style={{ display: 'flex', alignItems: 'center', paddingRight: '14px' }}>
+            <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '10px', letterSpacing: '1px', color: thisIsWalkUp ? '#1DB954' : '#cc1111', textTransform: 'uppercase', animation: thisIsAnnouncing ? 'blink 0.8s ease infinite' : 'none' }}>
+              {thisIsLoading ? '...' : thisIsAnnouncing ? 'LIVE' : 'MUSIC'}
+            </div>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function GameDay({ players }) {
   const [activeId, setActiveId] = useState(null);
@@ -15,6 +150,37 @@ export default function GameDay({ players }) {
   const hypeSoundRef = useRef(null);
   const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
   const { activeTeam } = useTeam();
+
+  // ── Lineup order ─────────────────────────────────────────────────────────────
+  const orderKey = `gameday_order_${getActiveTeamId()}`;
+  const [orderedIds, setOrderedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(orderKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  // Derive display order: saved order first, then any new players appended
+  const orderedPlayers = orderedIds
+    ? [
+        ...orderedIds.map(id => players.find(p => p.id === id)).filter(Boolean),
+        ...players.filter(p => !orderedIds.includes(p.id)),
+      ]
+    : players;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedPlayers.findIndex(p => p.id === active.id);
+    const newIndex = orderedPlayers.findIndex(p => p.id === over.id);
+    const newOrder = arrayMove(orderedPlayers, oldIndex, newIndex).map(p => p.id);
+    setOrderedIds(newOrder);
+    localStorage.setItem(orderKey, JSON.stringify(newOrder));
+  }
 
   // Warm up the hype sound bytes as soon as the Game Day tab is shown
   useEffect(() => { preloadHypeSound(); }, []);
@@ -52,7 +218,7 @@ export default function GameDay({ players }) {
     const soundId = getTeamHypeSound(getActiveTeamId());
     const hypeSound = HYPE_SOUNDS.find(s => s.id === soundId) || HYPE_SOUNDS[0];
     console.log('[GameDay] startHypeSound() dispatched, sound:', hypeSound.id);
-    startHypeSound(0.55, hypeSound.url).then(ctrl => {
+    startHypeSound(0.25, hypeSound.url).then(ctrl => {
       console.log('[GameDay] startHypeSound() resolved, ctrl:', ctrl ? 'OK' : 'null', '| ref:', hypeSoundRef.current);
       if (hypeSoundRef.current === null) {
         // stopEverything() fired while we were loading
@@ -128,7 +294,7 @@ export default function GameDay({ players }) {
     }
   };
 
-  if (players.length === 0) {
+  if (orderedPlayers.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '65vh', padding: '20px', textAlign: 'center' }}>
         <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚾</div>
@@ -185,86 +351,23 @@ export default function GameDay({ players }) {
       )}
 
       {/* Player list */}
-      <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {players.map((player, idx) => {
-          const isActive = activeId === player.id;
-          const thisIsLoading = isActive && phase === 'loading';
-          const thisIsAnnouncing = isActive && phase === 'announcing';
-          const thisIsWalkUp = isActive && phase === 'walkup';
-
-          return (
-            <button
-              key={player.id}
-              onClick={() => announce(player)}
-              style={{
-                display: 'flex',
-                alignItems: 'stretch',
-                background: isActive ? '#1a0a0a' : '#1a1a1a',
-                border: `1px solid ${isActive ? '#cc1111' : '#2a2a2a'}`,
-                borderLeft: `4px solid ${thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#1a3a8f'}`,
-                borderRadius: '4px',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                animation: thisIsAnnouncing ? 'pulse-red 1.2s ease infinite' : 'none',
-                width: '100%',
-                textAlign: 'left',
-                minHeight: '68px',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Jersey number */}
-              <div style={{
-                width: '56px',
-                minHeight: '68px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                background: thisIsWalkUp ? '#0d2a0d' : isActive ? '#2a0000' : '#111',
-                borderRight: `1px solid ${isActive ? '#cc1111' : '#222'}`,
-              }}>
-                <span style={{ fontFamily: "'Anton', sans-serif", fontSize: thisIsLoading ? '18px' : '28px', color: thisIsWalkUp ? '#1DB954' : isActive ? '#cc1111' : '#888', lineHeight: 1 }}>
-                  {thisIsLoading ? '…' : thisIsAnnouncing ? '🔊' : thisIsWalkUp ? '🎵' : (player.jerseyNumber || idx + 1)}
-                </span>
-              </div>
-
-              {/* Player info */}
-              <div style={{ flex: 1, padding: '12px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '22px', letterSpacing: '1px', textTransform: 'uppercase', color: isActive ? '#ffffff' : '#e8e8e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.1 }}>
-                  {player.name}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-                  {player.position && (
-                    <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1px', textTransform: 'uppercase', color: '#1a3a8f', background: 'rgba(26,58,143,0.15)', padding: '2px 6px', borderRadius: '2px', border: '1px solid rgba(26,58,143,0.3)' }}>
-                      {player.position}
-                    </span>
-                  )}
-                  {thisIsWalkUp && player.walkUpSong && (
-                    <span style={{ fontSize: '11px', color: '#1DB954', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                      ♫ {player.walkUpSong.name}
-                    </span>
-                  )}
-                  {!isActive && (
-                    <span style={{ display: 'flex', gap: '4px', opacity: 0.4, fontSize: '12px' }}>
-                      {player.customAnnouncement && '🎤'}
-                      {player.walkUpSong && connected && '🎵'}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Right indicator */}
-              {isActive && (
-                <div style={{ display: 'flex', alignItems: 'center', paddingRight: '14px' }}>
-                  <div style={{ fontFamily: "'Anton', sans-serif", fontSize: '10px', letterSpacing: '1px', color: thisIsWalkUp ? '#1DB954' : '#cc1111', textTransform: 'uppercase', animation: thisIsAnnouncing ? 'blink 0.8s ease infinite' : 'none' }}>
-                    {thisIsLoading ? '...' : thisIsAnnouncing ? 'LIVE' : 'MUSIC'}
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orderedPlayers.map(p => p.id)} strategy={verticalListSortingStrategy}>
+          <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {orderedPlayers.map((player, idx) => (
+              <SortablePlayerRow
+                key={player.id}
+                player={player}
+                idx={idx}
+                announce={announce}
+                activeId={activeId}
+                phase={phase}
+                connected={connected}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Stop button */}
       {activeId && (
