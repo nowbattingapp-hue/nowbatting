@@ -2,21 +2,29 @@
 // Add this to your team Settings page.
 // Matches NowBatting's Anton font / dark red hype theme.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTeam } from '../context/TeamContext';
 import {
   getTeamAnnouncementSettings,
   saveTeamAnnouncementSettings,
   resolveScript,
+  buildAnnouncementPrompt,
   AVAILABLE_VARIABLES,
+  ANNOUNCER_VOICES,
   DELIVERY_STYLES,
   DEFAULT_SCRIPT_TEMPLATE,
 } from '../utils/announcementScript';
+import { generateAnnouncement } from '../utils/elevenLabs';
+import { HYPE_SOUNDS, getTeamHypeSound, saveTeamHypeSound } from '../utils/hypeSounds';
+import { getActiveTeamId } from '../utils/teamStorage';
 
 export default function AnnouncementSettings() {
   const { activeTeam, roster } = useTeam();
   const [settings, setSettings] = useState(null);
   const [saved, setSaved]       = useState(false);
+  const [previewState, setPreviewState] = useState('idle'); // idle | loading | error
+  const [hypeSoundId, setHypeSoundId] = useState(() => getTeamHypeSound(getActiveTeamId()));
+  const previewAudioRef = useRef(null);
 
   useEffect(() => {
     if (activeTeam) {
@@ -33,8 +41,28 @@ export default function AnnouncementSettings() {
 
   function handleSave() {
     saveTeamAnnouncementSettings(activeTeam.id, settings);
+    saveTeamHypeSound(activeTeam.id, hypeSoundId);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleVoicePreview() {
+    if (previewState === 'loading') return;
+    previewAudioRef.current?.pause();
+    setPreviewState('loading');
+    try {
+      const scriptText = resolveScript(settings.scriptTemplate, previewPlayer, activeTeam);
+      const { text, voiceSettings } = buildAnnouncementPrompt(scriptText, settings.deliveryStyle);
+      const url = await generateAnnouncement(text, voiceSettings, settings.voiceId);
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => setPreviewState('idle');
+      audio.onerror = () => setPreviewState('error');
+      audio.play();
+      setPreviewState('idle');
+    } catch {
+      setPreviewState('error');
+    }
   }
 
   function insertToken(token) {
@@ -54,6 +82,60 @@ export default function AnnouncementSettings() {
   return (
     <div style={styles.container}>
       <div style={styles.sectionTitle}>ANNOUNCEMENT SETTINGS</div>
+
+      {/* Voice Selector */}
+      <div style={styles.field}>
+        <label style={styles.label}>ANNOUNCER VOICE</label>
+        <div style={styles.voiceGrid}>
+          {ANNOUNCER_VOICES.map(voice => (
+            <button
+              key={voice.id}
+              style={{
+                ...styles.voiceCard,
+                ...(settings.voiceId === voice.id ? styles.voiceCardActive : {}),
+              }}
+              onClick={() => update({ voiceId: voice.id })}
+            >
+              <span style={styles.voiceEmoji}>{voice.emoji}</span>
+              <span style={styles.voiceName}>{voice.name}</span>
+              <span style={styles.voiceDesc}>{voice.description}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          style={{
+            ...styles.previewBtn,
+            ...(previewState === 'loading' ? styles.previewBtnDisabled : {}),
+          }}
+          onClick={handleVoicePreview}
+          disabled={previewState === 'loading'}
+        >
+          {previewState === 'loading' ? 'GENERATING...' : previewState === 'error' ? '⚠ TRY AGAIN' : '▶ PREVIEW VOICE'}
+        </button>
+      </div>
+
+      {/* Background Sound Selector */}
+      <div style={styles.field}>
+        <label style={styles.label}>BACKGROUND SOUND</label>
+        <div style={styles.toggleRow}>
+          {HYPE_SOUNDS.map(sound => (
+            <button
+              key={sound.id}
+              style={{
+                ...styles.styleBtn,
+                ...(hypeSoundId === sound.id ? styles.styleBtnActive : {}),
+              }}
+              onClick={() => {
+                setHypeSoundId(sound.id);
+                saveTeamHypeSound(activeTeam.id, sound.id);
+              }}
+            >
+              <span style={styles.styleBtnIcon}>{sound.emoji}</span>
+              <span style={styles.styleBtnTitle}>{sound.label.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Delivery Style Toggle */}
       <div style={styles.field}>
@@ -155,6 +237,46 @@ const styles = {
     letterSpacing: '0.1em',
     color: 'rgba(255,255,255,0.5)',
     marginBottom: 8,
+  },
+  voiceGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 8,
+  },
+  voiceCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 3,
+    padding: '10px 8px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1.5px solid rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    color: '#fff',
+  },
+  voiceCardActive: {
+    background: 'rgba(200,16,46,0.2)',
+    border: '1.5px solid #C8102E',
+  },
+  voiceEmoji: {
+    fontSize: 20,
+  },
+  voiceName: {
+    fontSize: 13,
+    letterSpacing: '0.08em',
+    color: '#fff',
+  },
+  voiceDesc: {
+    fontSize: 9,
+    letterSpacing: '0.03em',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: 'sans-serif',
+    fontWeight: 400,
+    textTransform: 'none',
+    textAlign: 'center',
+    lineHeight: 1.3,
   },
   toggleRow: {
     display: 'flex',
@@ -258,6 +380,24 @@ const styles = {
     marginTop: 6,
     fontFamily: 'sans-serif',
     fontWeight: 400,
+  },
+  previewBtn: {
+    width: '100%',
+    marginTop: 10,
+    background: 'transparent',
+    border: '1.5px solid #C8102E',
+    borderRadius: 10,
+    color: '#fff',
+    fontFamily: "'Anton', impact, sans-serif",
+    fontSize: 15,
+    letterSpacing: '0.1em',
+    padding: '12px',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+  },
+  previewBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'default',
   },
   saveBtn: {
     width: '100%',

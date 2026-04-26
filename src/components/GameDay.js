@@ -3,6 +3,7 @@ import { buildAnnouncementText } from '../hooks/useSpeech';
 import { playWithFallback } from '../utils/elevenLabs';
 import { useSpotify } from '../contexts/SpotifyContext';
 import { preloadHypeSound, startHypeSound } from '../utils/hypeSound';
+import { HYPE_SOUNDS, getTeamHypeSound } from '../utils/hypeSounds';
 import { useTeam } from '../context/TeamContext';
 import { getActiveTeamId } from '../utils/teamStorage';
 import { getTeamAnnouncementSettings, resolveScript, buildAnnouncementPrompt } from '../utils/announcementScript';
@@ -48,8 +49,10 @@ export default function GameDay({ players }) {
     // The .then() below checks: if hypeSoundRef.current is null, stopEverything() ran
     // while we were loading — kill the ctrl immediately instead of playing it.
     hypeSoundRef.current = 'loading';
-    console.log('[GameDay] startHypeSound() dispatched');
-    startHypeSound(0.55).then(ctrl => {
+    const soundId = getTeamHypeSound(getActiveTeamId());
+    const hypeSound = HYPE_SOUNDS.find(s => s.id === soundId) || HYPE_SOUNDS[0];
+    console.log('[GameDay] startHypeSound() dispatched, sound:', hypeSound.id);
+    startHypeSound(0.55, hypeSound.url).then(ctrl => {
       console.log('[GameDay] startHypeSound() resolved, ctrl:', ctrl ? 'OK' : 'null', '| ref:', hypeSoundRef.current);
       if (hypeSoundRef.current === null) {
         // stopEverything() fired while we were loading
@@ -112,12 +115,14 @@ export default function GameDay({ players }) {
       const announceSettings = getTeamAnnouncementSettings(teamId);
       const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
       const { text, voiceSettings } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+      const { voiceId } = announceSettings;
       console.log('[GameDay] announcement text:', text);
       const stop = playWithFallback(text, {
         onStart: () => setPhase('announcing'),
         onHalfway,
         onEnd,
         voiceSettings,
+        voiceId,
       });
       stopAnnouncementRef.current = stop;
     }

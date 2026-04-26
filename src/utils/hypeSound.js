@@ -35,20 +35,29 @@ export function preloadHypeSound() {
 /**
  * Start the hype sound. Returns { fadeOut(durationSec), stop } or null.
  * Must be called inside a user-gesture handler so AudioContext is allowed.
+ * Pass a url to load audio from a file instead of the embedded base64 crowd sound.
  */
-export async function startHypeSound(volume = 0.55) {
-  console.log('[HypeSound] startHypeSound() called, volume:', volume);
+export async function startHypeSound(volume = 0.55, url = null) {
+  console.log('[HypeSound] startHypeSound() called, volume:', volume, '| url:', url ?? '(embedded)');
 
-  // ── Step 1: Get bytes (synchronous cache; pre-warmed by preloadHypeSound) ──
+  // ── Step 1: Get bytes ────────────────────────────────────────────────────────
   //
   // CRITICAL: Do NOT create AudioContext before this point.
   // If this throws, we return null without consuming the browser gesture token,
   // keeping subsequent audio.play() calls (announcement, walk-up, TTS) unblocked.
   let bytes;
   try {
-    bytes = getCrowdBytes();
+    if (url) {
+      console.log('[HypeSound] Fetching sound from URL:', url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      bytes = await res.arrayBuffer();
+      console.log('[HypeSound] Fetched OK, byteLength:', bytes.byteLength);
+    } else {
+      bytes = getCrowdBytes();
+    }
   } catch (e) {
-    console.warn('[HypeSound] base64 decode failed — skipping hype sound, gesture preserved:', e.message);
+    console.warn('[HypeSound] Failed to load audio — skipping hype sound, gesture preserved:', e.message);
     return null;
   }
 

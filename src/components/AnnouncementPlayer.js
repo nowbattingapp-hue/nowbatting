@@ -27,6 +27,7 @@ export default function AnnouncementPlayer({ player, onSaveRecording }) {
   const announceSettings = getTeamAnnouncementSettings(teamId);
   const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
   const { text: announcementText, voiceSettings: announcementVoiceSettings } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+  const { voiceId: announcementVoiceId } = announceSettings;
 
   const handlePreview = () => {
     if (previewState === 'playing' || previewState === 'loading') {
@@ -42,6 +43,7 @@ export default function AnnouncementPlayer({ player, onSaveRecording }) {
       onStart: () => setPreviewState('playing'),
       onEnd: () => setPreviewState('idle'),
       voiceSettings: announcementVoiceSettings,
+      voiceId: announcementVoiceId,
     });
     stopPreviewRef.current = stop;
   };

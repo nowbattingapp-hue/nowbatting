@@ -1,4 +1,4 @@
-const VOICE_ID = 'nPczCjzI2devNBz1zQrb'; // Brian — deep, energetic announcer
+const DEFAULT_VOICE_ID = 'nPczCjzI2devNBz1zQrb'; // Brian — deep, energetic announcer
 const MODEL_ID = 'eleven_turbo_v2_5';
 
 const _apiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
@@ -7,22 +7,23 @@ console.log('[ElevenLabs] API key status:', _apiKey ? `present (${_apiKey.slice(
 // Session-level cache: announcement text → blob URL
 const audioCache = new Map();
 
-export async function generateAnnouncement(text, voiceSettings) {
+export async function generateAnnouncement(text, voiceSettings, voiceId) {
   if (audioCache.has(text)) {
     console.log('[ElevenLabs] Cache hit for:', text);
     return audioCache.get(text);
   }
   const apiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error('No ElevenLabs API key — check .env and restart');
-  console.log('[ElevenLabs] Calling API for:', text);
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+  const requestBody = {
+    text,
+    model_id: MODEL_ID,
+    voice_settings: voiceSettings ?? { stability: 0.45, similarity_boost: 0.75 },
+  };
+  console.log('[ElevenLabs] Request body:', JSON.stringify(requestBody, null, 2));
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId ?? DEFAULT_VOICE_ID}`, {
     method: 'POST',
     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text,
-      model_id: MODEL_ID,
-      voice_settings: voiceSettings ?? { stability: 0.45, similarity_boost: 0.75 },
-    }),
+    body: JSON.stringify(requestBody),
   });
   console.log('[ElevenLabs] Response status:', res.status);
   if (!res.ok) {
@@ -40,11 +41,11 @@ export async function generateAnnouncement(text, voiceSettings) {
 // onHalfway fires when ~50% of the audio has elapsed so the caller can start the
 // walk-up song softly underneath the announcement.
 // Returns a cancel function.
-export function playWithFallback(text, { onEnd, onStart, onHalfway, voiceSettings } = {}) {
+export function playWithFallback(text, { onEnd, onStart, onHalfway, voiceSettings, voiceId } = {}) {
   let audio = null;
   let cancelled = false;
 
-  generateAnnouncement(text, voiceSettings)
+  generateAnnouncement(text, voiceSettings, voiceId)
     .then(url => {
       if (cancelled) {
         console.log('[ElevenLabs] Cancelled before playback');

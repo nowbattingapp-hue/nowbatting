@@ -10,6 +10,33 @@ export const DELIVERY_STYLES = {
 
 export const DEFAULT_SCRIPT_TEMPLATE = 'Now batting... number {number}... {firstName} {lastName}!';
 
+export const ANNOUNCER_VOICES = [
+  {
+    id: 'nPczCjzI2devNBz1zQrb',
+    name: 'Brian',
+    description: 'Current default · mid energy',
+    emoji: '🎙️',
+  },
+  {
+    id: 'ErXwobaYiN019PkySvjV',
+    name: 'Antoni',
+    description: 'Deep · warm · authoritative',
+    emoji: '🏟️',
+  },
+  {
+    id: 'VR6AewLTigWG4xSOukaG',
+    name: 'Arnold',
+    description: 'Big · powerful · classic',
+    emoji: '📣',
+  },
+  {
+    id: 'onwK4e9ZLuTAKqWW03F9',
+    name: 'Daniel',
+    description: 'Smooth · polished · ESPN',
+    emoji: '⚡',
+  },
+];
+
 export const AVAILABLE_VARIABLES = [
   { token: '{firstName}',  label: 'First Name' },
   { token: '{lastName}',   label: 'Last Name' },
@@ -50,9 +77,7 @@ export function buildAnnouncementPrompt(resolvedText, deliveryStyle) {
 }
 
 function buildClassicPrompt(text) {
-  const styled = text
-    .replace(/Now batting/gi, 'Noooow batting')
-    .replace(/\.\.\./g, '...  ');
+  const styled = text.replace(/\.\.\./g, ', ');
   return {
     text: styled,
     voiceSettings: { stability: 0.85, similarity_boost: 0.75, style: 0.0, use_speaker_boost: false },
@@ -60,19 +85,14 @@ function buildClassicPrompt(text) {
 }
 
 function buildHypePrompt(text) {
-  let styled = text.replace(/Now batting/gi, 'NOW BATTING');
-
-  // Stretch the last vowel of the final word before any trailing punctuation
-  styled = styled.replace(/([A-Za-z]+)([^A-Za-z]*)$/, (_, word, tail) => {
-    const stretched = word.replace(/([aeiouAEIOU])(?=[^aeiouAEIOU]*$)/, '$1$1$1');
-    return stretched + tail;
-  });
-
-  // Ensure ends with !!
-  styled = styled.replace(/!*$/, '!!');
+  // Strip trailing punctuation, then re-append the last word followed by !!
+  const stripped = text.replace(/[!.,\s]+$/, '');
+  const lastWord = stripped.match(/\S+$/)?.[0] ?? '';
+  const base = stripped.slice(0, stripped.length - lastWord.length).trimEnd();
+  const styled = (base ? base + ' ' : '') + lastWord + '!!';
 
   return {
-    text: styled,
+    text: styled.replace(/Now batting/gi, 'NOW BATTING'),
     voiceSettings: { stability: 0.35, similarity_boost: 0.75, style: 0.8, use_speaker_boost: true },
   };
 }
@@ -96,5 +116,6 @@ export function getDefaultAnnouncementSettings() {
   return {
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     deliveryStyle: DELIVERY_STYLES.hype,
+    voiceId: 'nPczCjzI2devNBz1zQrb',
   };
 }
