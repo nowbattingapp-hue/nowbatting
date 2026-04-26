@@ -193,7 +193,6 @@ const styles = {
     border: '1px solid rgba(200,16,46,0.5)',
     borderRadius: 4,
     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-    zIndex: 1000,
     overflow: 'hidden',
   },
   panelHeader: {

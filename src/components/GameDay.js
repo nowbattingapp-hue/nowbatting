@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { buildAnnouncementText } from '../hooks/useSpeech';
 import { playWithFallback } from '../utils/elevenLabs';
 import { useSpotify } from '../contexts/SpotifyContext';
 import { preloadHypeSound, startHypeSound } from '../utils/hypeSound';

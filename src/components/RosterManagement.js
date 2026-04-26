@@ -46,7 +46,7 @@ export default function RosterManagement({ players, addPlayer, deletePlayer, onS
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const id = addPlayer({
+    addPlayer({
       name: newName.trim(),
       jerseyNumber: newNumber.trim(),
       position: newPosition.trim(),
