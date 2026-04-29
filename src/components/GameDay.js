@@ -168,7 +168,7 @@ export default function GameDay({ players }) {
   const stopAnnouncementRef = useRef(null);
   const hypeSoundRef = useRef(null);
   const walkUpTimerRef = useRef(null);
-  const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, fadeOutWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
+  const { startWalkUpSoft, rampWalkUpToFull, fadeOutWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
   const { activeTeam } = useTeam();
 
   // ── Lineup order ─────────────────────────────────────────────────────────────
