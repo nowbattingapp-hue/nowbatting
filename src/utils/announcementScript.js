@@ -8,7 +8,9 @@ export const DELIVERY_STYLES = {
   hype: 'hype',
 };
 
-export const DEFAULT_SCRIPT_TEMPLATE = 'Now batting... number {number}... {firstName} {lastName}!';
+export const DEFAULT_SCRIPT_TEMPLATE_CLASSIC = 'Now batting... Number {number}... {firstName} {lastName}.';
+export const DEFAULT_SCRIPT_TEMPLATE_HYPE    = 'NOW batting... Number {number}... {firstName} {lastName}!!';
+export const DEFAULT_SCRIPT_TEMPLATE = DEFAULT_SCRIPT_TEMPLATE_HYPE;
 
 export const ANNOUNCER_VOICES = [
   {
@@ -49,12 +51,14 @@ export const AVAILABLE_VARIABLES = [
 // ─── Resolve template → announcement text ────────────────────────────────────
 
 export function resolveScript(template, player, team) {
+  const firstName = player.firstName || player.name?.split(' ')[0] || '';
+  const lastName  = player.lastName  || player.name?.split(' ').slice(1).join(' ') || '';
   const map = {
-    '{firstName}': player.firstName || player.name?.split(' ')[0] || '',
-    '{lastName}':  player.lastName  || player.name?.split(' ').slice(1).join(' ') || '',
+    '{firstName}': player.phoneticFirst || firstName,
+    '{lastName}':  player.phoneticLast  || lastName,
     '{number}':    player.number    || player.jerseyNumber || '',
     '{position}':  player.position  || '',
-    '{nickname}':  player.nickname  || player.firstName || player.name?.split(' ')[0] || '',
+    '{nickname}':  player.nickname  || firstName,
     '{teamName}':  team?.name       || '',
   };
 
@@ -77,23 +81,18 @@ export function buildAnnouncementPrompt(resolvedText, deliveryStyle) {
 }
 
 function buildClassicPrompt(text) {
-  const styled = text.replace(/\.\.\./g, ', ');
   return {
-    text: styled,
-    voiceSettings: { stability: 0.85, similarity_boost: 0.75, style: 0.0, use_speaker_boost: false },
+    text,
+    voiceSettings: { stability: 0.90, similarity_boost: 0.70, style: 0.0, use_speaker_boost: false },
+    isSSML: false,
   };
 }
 
 function buildHypePrompt(text) {
-  // Strip trailing punctuation, then re-append the last word followed by !!
-  const stripped = text.replace(/[!.,\s]+$/, '');
-  const lastWord = stripped.match(/\S+$/)?.[0] ?? '';
-  const base = stripped.slice(0, stripped.length - lastWord.length).trimEnd();
-  const styled = (base ? base + ' ' : '') + lastWord + '!!';
-
   return {
-    text: styled.replace(/Now batting/gi, 'NOW BATTING'),
-    voiceSettings: { stability: 0.35, similarity_boost: 0.75, style: 0.8, use_speaker_boost: true },
+    text,
+    voiceSettings: { stability: 0.30, similarity_boost: 0.85, style: 0.80, use_speaker_boost: true },
+    isSSML: false,
   };
 }
 
@@ -112,10 +111,14 @@ export function saveTeamAnnouncementSettings(teamId, settings) {
   localStorage.setItem(`nowbatting_announce_${teamId}`, JSON.stringify(settings));
 }
 
+export const WALKUP_DURATIONS = [10, 15, 20, 30];
+export const DEFAULT_WALKUP_DURATION = 15;
+
 export function getDefaultAnnouncementSettings() {
   return {
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     deliveryStyle: DELIVERY_STYLES.hype,
     voiceId: 'nPczCjzI2devNBz1zQrb',
+    walkUpDuration: DEFAULT_WALKUP_DURATION,
   };
 }

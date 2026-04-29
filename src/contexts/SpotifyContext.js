@@ -388,6 +388,80 @@ export function SpotifyProvider({ children }) {
     }
   }, []);
 
+  // Fade the walk-up song out over durationSec, then stop it.
+  // Safe to call at any time — cancels any in-progress ramp first.
+  const fadeOutWalkUp = useCallback((durationSec = 1.5) => {
+    const steps = 30;
+    const intervalMs = (durationSec * 1000) / steps;
+
+    // ── iOS path ──────────────────────────────────────────────────────────────
+    if (isIOS && walkUpAudioRef.current) {
+      const audio = walkUpAudioRef.current;
+      clearIOSRamp();
+      const startVol = audio.volume;
+      const volStep = startVol / steps;
+      let step = 0;
+      iosRampRef.current = setInterval(() => {
+        step++;
+        audio.volume = Math.max(startVol - volStep * step, 0);
+        if (step >= steps) {
+          clearInterval(iosRampRef.current);
+          iosRampRef.current = null;
+          audio.pause();
+          audio.volume = 1.0;
+          walkUpAudioRef.current = null;
+        }
+      }, intervalMs);
+      return;
+    }
+
+    // ── SDK path ──────────────────────────────────────────────────────────────
+    const premium = isPremiumRef.current;
+    const ready   = sdkReadyRef.current;
+    if (premium && ready && playerRef.current) {
+      clearRamp();
+      let step = 0;
+      playerRef.current.getVolume().then(startVol => {
+        const vol = startVol ?? 1.0;
+        const volStep = vol / steps;
+        sdkRampIntervalRef.current = setInterval(async () => {
+          step++;
+          const newVol = Math.max(vol - volStep * step, 0);
+          await playerRef.current?.setVolume(newVol).catch(() => {});
+          if (step >= steps) {
+            clearInterval(sdkRampIntervalRef.current);
+            sdkRampIntervalRef.current = null;
+            playerRef.current?.pause().catch(() => {});
+            playerRef.current?.setVolume(1.0).catch(() => {});
+          }
+        }, intervalMs);
+      }).catch(() => {
+        playerRef.current?.pause().catch(() => {});
+      });
+      return;
+    }
+
+    // ── Web Audio path ────────────────────────────────────────────────────────
+    if (gainNodeRef.current && audioCtxRef.current) {
+      const gain = gainNodeRef.current;
+      const ctx  = audioCtxRef.current;
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + durationSec);
+      setTimeout(() => {
+        if (walkUpAudioRef.current) {
+          walkUpAudioRef.current.pause();
+          walkUpAudioRef.current = null;
+        }
+        closeAudioCtx();
+      }, durationSec * 1000);
+      return;
+    }
+
+    // Fallback: hard stop if no active path found
+    stopWalkUp();
+  }, [stopWalkUp]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const disconnect = useCallback(() => {
     stopWalkUp();
     clearTokens();
@@ -418,6 +492,7 @@ export function SpotifyProvider({ children }) {
       startWalkUpSoft,
       rampWalkUpToFull,
       stopWalkUp,
+      fadeOutWalkUp,
       disconnect,
       onTokensReceived,
     }}>

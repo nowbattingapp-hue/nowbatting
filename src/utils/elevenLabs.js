@@ -1,26 +1,49 @@
 const DEFAULT_VOICE_ID = 'nPczCjzI2devNBz1zQrb'; // Brian — deep, energetic announcer
 const MODEL_ID = 'eleven_turbo_v2_5';
 
+// Per-voice base settings — merged with delivery-style settings at call time.
+// Delivery style settings override these where they overlap (e.g. style, use_speaker_boost).
+const VOICE_BASE_SETTINGS = {
+  'nPczCjzI2devNBz1zQrb': { stability: 0.75, similarity_boost: 0.75, style: 0.15 }, // Brian
+  'ErXwobaYiN019PkySvjV': { stability: 0.60, similarity_boost: 0.80, style: 0.25 }, // Antoni
+  'VR6AewLTigWG4xSOukaG': { stability: 0.85, similarity_boost: 0.70, style: 0.05 }, // Arnold
+  'onwK4e9ZLuTAKqWW03F9': { stability: 0.65, similarity_boost: 0.85, style: 0.30 }, // Daniel
+};
+
 const _apiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
 console.log('[ElevenLabs] API key status:', _apiKey ? `present (${_apiKey.slice(0, 8)}…)` : 'MISSING — check .env and restart dev server');
 
 // Session-level cache: announcement text → blob URL
 const audioCache = new Map();
 
-export async function generateAnnouncement(text, voiceSettings, voiceId) {
-  if (audioCache.has(text)) {
-    console.log('[ElevenLabs] Cache hit for:', text);
-    return audioCache.get(text);
+export async function generateAnnouncement(text, voiceSettings, voiceId, isSSML = false) {
+  const resolvedVoiceId = voiceId ?? DEFAULT_VOICE_ID;
+  const cacheKey = `${resolvedVoiceId}::${text}`;
+  if (audioCache.has(cacheKey)) {
+    console.log('[ElevenLabs] Cache hit for voice:', resolvedVoiceId, '| text:', text);
+    return audioCache.get(cacheKey);
   }
   const apiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error('No ElevenLabs API key — check .env and restart');
-  const requestBody = {
-    text,
-    model_id: MODEL_ID,
-    voice_settings: voiceSettings ?? { stability: 0.45, similarity_boost: 0.75 },
+
+  // Sanitize: strip characters outside letters, numbers, spaces, and safe punctuation.
+  // For SSML, preserve XML tags by only sanitizing text nodes between tags.
+  const sanitize = (str) => str.replace(/[^a-zA-Z0-9 .,!?'\-\n]/g, '');
+  const sanitizedText = isSSML
+    ? text.replace(/>([^<]*)</g, (_, inner) => `>${sanitize(inner)}<`)
+    : sanitize(text);
+
+  const mergedSettings = {
+    ...VOICE_BASE_SETTINGS[resolvedVoiceId],
+    ...voiceSettings,
   };
-  console.log('[ElevenLabs] Request body:', JSON.stringify(requestBody, null, 2));
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId ?? DEFAULT_VOICE_ID}`, {
+  const requestBody = {
+    text: sanitizedText,
+    model_id: MODEL_ID,
+    voice_settings: mergedSettings,
+  };
+  console.log('[ElevenLabs] voice_id:', resolvedVoiceId, '| model:', requestBody.model_id, '| isSSML:', isSSML, '| voice_settings:', JSON.stringify(mergedSettings));
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${resolvedVoiceId}`, {
     method: 'POST',
     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
@@ -33,7 +56,7 @@ export async function generateAnnouncement(text, voiceSettings, voiceId) {
   const blob = await res.blob();
   console.log('[ElevenLabs] Audio blob received, size:', blob.size, 'type:', blob.type);
   const url = URL.createObjectURL(blob);
-  audioCache.set(text, url);
+  audioCache.set(cacheKey, url);
   return url;
 }
 
@@ -41,11 +64,11 @@ export async function generateAnnouncement(text, voiceSettings, voiceId) {
 // onHalfway fires when ~50% of the audio has elapsed so the caller can start the
 // walk-up song softly underneath the announcement.
 // Returns a cancel function.
-export function playWithFallback(text, { onEnd, onStart, onHalfway, voiceSettings, voiceId } = {}) {
+export function playWithFallback(text, { onEnd, onStart, onHalfway, voiceSettings, voiceId, isSSML = false } = {}) {
   let audio = null;
   let cancelled = false;
 
-  generateAnnouncement(text, voiceSettings, voiceId)
+  generateAnnouncement(text, voiceSettings, voiceId, isSSML)
     .then(url => {
       if (cancelled) {
         console.log('[ElevenLabs] Cancelled before playback');

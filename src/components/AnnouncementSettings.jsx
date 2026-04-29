@@ -13,8 +13,13 @@ import {
   ANNOUNCER_VOICES,
   DELIVERY_STYLES,
   DEFAULT_SCRIPT_TEMPLATE,
+  DEFAULT_SCRIPT_TEMPLATE_CLASSIC,
+  DEFAULT_SCRIPT_TEMPLATE_HYPE,
+  WALKUP_DURATIONS,
+  DEFAULT_WALKUP_DURATION,
 } from '../utils/announcementScript';
 import { generateAnnouncement } from '../utils/elevenLabs';
+import { startHypeSound } from '../utils/hypeSound';
 import { HYPE_SOUNDS, getTeamHypeSound, saveTeamHypeSound } from '../utils/hypeSounds';
 import { getActiveTeamId } from '../utils/teamStorage';
 
@@ -22,9 +27,11 @@ export default function AnnouncementSettings() {
   const { activeTeam, roster } = useTeam();
   const [settings, setSettings] = useState(null);
   const [saved, setSaved]       = useState(false);
-  const [previewState, setPreviewState] = useState('idle'); // idle | loading | error
+  const [previewState, setPreviewState] = useState('idle'); // idle | loading | playing | error
   const [hypeSoundId, setHypeSoundId] = useState(() => getTeamHypeSound(getActiveTeamId()));
   const previewAudioRef = useRef(null);
+  const previewHypeRef = useRef(null);
+  const previewCancelledRef = useRef(false);
 
   useEffect(() => {
     if (activeTeam) {
@@ -39,6 +46,16 @@ export default function AnnouncementSettings() {
     setSaved(false);
   }
 
+  // Instant-apply: updates state AND persists to localStorage immediately.
+  // Used for voice and delivery style so Preview always uses the live selection.
+  function updateAndSave(changes) {
+    setSettings(s => {
+      const next = { ...s, ...changes };
+      saveTeamAnnouncementSettings(activeTeam.id, next);
+      return next;
+    });
+  }
+
   function handleSave() {
     saveTeamAnnouncementSettings(activeTeam.id, settings);
     saveTeamHypeSound(activeTeam.id, hypeSoundId);
@@ -46,21 +63,67 @@ export default function AnnouncementSettings() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  async function handleVoicePreview() {
-    if (previewState === 'loading') return;
+  function stopPreview() {
+    previewCancelledRef.current = true;
     previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    const hype = previewHypeRef.current;
+    previewHypeRef.current = null;
+    if (hype && hype !== 'loading') hype.fadeOut(1.0);
+    setPreviewState('idle');
+  }
+
+  async function handleFullPreview() {
+    if (previewState === 'loading' || previewState === 'playing') { stopPreview(); return; }
+
+    previewCancelledRef.current = false;
     setPreviewState('loading');
+
+    // Start background hype sound immediately
+    const hypeSound = HYPE_SOUNDS.find(s => s.id === hypeSoundId) || HYPE_SOUNDS[0];
+    previewHypeRef.current = 'loading';
+    startHypeSound(0.25, hypeSound.url).then(ctrl => {
+      if (previewCancelledRef.current) { ctrl?.stop(); return; }
+      previewHypeRef.current = ctrl;
+    });
+
     try {
       const scriptText = resolveScript(settings.scriptTemplate, previewPlayer, activeTeam);
-      const { text, voiceSettings } = buildAnnouncementPrompt(scriptText, settings.deliveryStyle);
-      const url = await generateAnnouncement(text, voiceSettings, settings.voiceId);
+      const { text, voiceSettings, isSSML } = buildAnnouncementPrompt(scriptText, settings.deliveryStyle);
+      console.log('[AnnouncementSettings] Preview voice_id:', settings.voiceId, '| deliveryStyle:', settings.deliveryStyle, '| isSSML:', isSSML, '| text:', text);
+      const url = await generateAnnouncement(text, voiceSettings, settings.voiceId, isSSML);
+
+      console.log('[AnnouncementSettings] Blob URL received, cancelled:', previewCancelledRef.current);
+      if (previewCancelledRef.current) {
+        // User stopped while generating — hype already stopped by stopPreview()
+        return;
+      }
+
       const audio = new Audio(url);
       previewAudioRef.current = audio;
-      audio.onended = () => setPreviewState('idle');
-      audio.onerror = () => setPreviewState('error');
-      audio.play();
-      setPreviewState('idle');
-    } catch {
+
+      audio.onplay = () => {
+        console.log('[AnnouncementSettings] Audio started playing');
+        setPreviewState('playing');
+      };
+      audio.onended = () => {
+        console.log('[AnnouncementSettings] Audio ended — fading out hype');
+        const hype = previewHypeRef.current;
+        previewHypeRef.current = null;
+        if (hype && hype !== 'loading') hype.fadeOut(1.5);
+        setPreviewState('idle');
+      };
+      audio.onerror = (e) => {
+        console.error('[AnnouncementSettings] Audio error:', e);
+        stopPreview();
+        setPreviewState('error');
+      };
+
+      console.log('[AnnouncementSettings] Calling audio.play()');
+      await audio.play();
+    } catch (e) {
+      console.error('[AnnouncementSettings] Preview failed:', e);
+      stopPreview();
       setPreviewState('error');
     }
   }
@@ -83,7 +146,7 @@ export default function AnnouncementSettings() {
     <div style={styles.container}>
       <div style={styles.sectionTitle}>ANNOUNCEMENT SETTINGS</div>
 
-      {/* Voice Selector */}
+      {/* 1. Announcer Voice */}
       <div style={styles.field}>
         <label style={styles.label}>ANNOUNCER VOICE</label>
         <div style={styles.voiceGrid}>
@@ -94,7 +157,7 @@ export default function AnnouncementSettings() {
                 ...styles.voiceCard,
                 ...(settings.voiceId === voice.id ? styles.voiceCardActive : {}),
               }}
-              onClick={() => update({ voiceId: voice.id })}
+              onClick={() => updateAndSave({ voiceId: voice.id })}
             >
               <span style={styles.voiceEmoji}>{voice.emoji}</span>
               <span style={styles.voiceName}>{voice.name}</span>
@@ -102,19 +165,73 @@ export default function AnnouncementSettings() {
             </button>
           ))}
         </div>
-        <button
-          style={{
-            ...styles.previewBtn,
-            ...(previewState === 'loading' ? styles.previewBtnDisabled : {}),
-          }}
-          onClick={handleVoicePreview}
-          disabled={previewState === 'loading'}
-        >
-          {previewState === 'loading' ? 'GENERATING...' : previewState === 'error' ? '⚠ TRY AGAIN' : '▶ PREVIEW VOICE'}
-        </button>
       </div>
 
-      {/* Background Sound Selector */}
+      {/* 2. Delivery Style */}
+      <div style={styles.field}>
+        <label style={styles.label}>DELIVERY STYLE</label>
+        <div style={styles.toggleRow}>
+          <button
+            style={{
+              ...styles.styleBtn,
+              ...(settings.deliveryStyle === DELIVERY_STYLES.classic ? styles.styleBtnActive : {}),
+            }}
+            onClick={() => updateAndSave({ deliveryStyle: DELIVERY_STYLES.classic, scriptTemplate: DEFAULT_SCRIPT_TEMPLATE_CLASSIC })}
+          >
+            <span style={styles.styleBtnIcon}>🎩</span>
+            <span style={styles.styleBtnTitle}>CLASSIC</span>
+            <span style={styles.styleBtnSub}>Bob Sheppard</span>
+          </button>
+          <button
+            style={{
+              ...styles.styleBtn,
+              ...(settings.deliveryStyle === DELIVERY_STYLES.hype ? styles.styleBtnActive : {}),
+            }}
+            onClick={() => updateAndSave({ deliveryStyle: DELIVERY_STYLES.hype, scriptTemplate: DEFAULT_SCRIPT_TEMPLATE_HYPE })}
+          >
+            <span style={styles.styleBtnIcon}>🔥</span>
+            <span style={styles.styleBtnTitle}>HYPE</span>
+            <span style={styles.styleBtnSub}>ESPN Energy</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Announcement Script */}
+      <div style={styles.field}>
+        <label style={styles.label}>ANNOUNCEMENT SCRIPT</label>
+        <textarea
+          style={styles.textarea}
+          value={settings.scriptTemplate}
+          onChange={e => update({ scriptTemplate: e.target.value })}
+          placeholder={DEFAULT_SCRIPT_TEMPLATE}
+          rows={3}
+          spellCheck={false}
+        />
+        <div style={styles.tokenRow}>
+          <span style={styles.tokenLabel}>INSERT:</span>
+          {AVAILABLE_VARIABLES.map(v => (
+            <button
+              key={v.token}
+              style={styles.tokenChip}
+              onClick={() => insertToken(v.token)}
+              title={`Insert ${v.label}`}
+            >
+              {v.token}
+            </button>
+          ))}
+        </div>
+        <div style={styles.previewBox}>
+          <div style={styles.previewLabel}>SCRIPT PREVIEW</div>
+          <div style={styles.previewText}>"{previewText}"</div>
+          {roster?.length > 0 && (
+            <div style={styles.previewMeta}>
+              Using {previewPlayer.firstName} {previewPlayer.lastName} as example
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Background Sound */}
       <div style={styles.field}>
         <label style={styles.label}>BACKGROUND SOUND</label>
         <div style={styles.toggleRow}>
@@ -137,72 +254,41 @@ export default function AnnouncementSettings() {
         </div>
       </div>
 
-      {/* Delivery Style Toggle */}
+      {/* 5. Full Preview */}
       <div style={styles.field}>
-        <label style={styles.label}>DELIVERY STYLE</label>
+        <button
+          style={{
+            ...styles.previewBtn,
+            ...((previewState === 'loading') ? styles.previewBtnDisabled : {}),
+            ...(previewState === 'playing' ? styles.previewBtnPlaying : {}),
+          }}
+          onClick={handleFullPreview}
+          disabled={previewState === 'loading'}
+        >
+          {previewState === 'loading' ? 'GENERATING...'
+            : previewState === 'playing' ? '■ STOP PREVIEW'
+            : previewState === 'error'   ? '⚠ TRY AGAIN'
+            : '▶ PREVIEW FULL ANNOUNCEMENT'}
+        </button>
+      </div>
+
+      {/* 6. Walk-Up Duration */}
+      <div style={styles.field}>
+        <label style={styles.label}>WALK-UP SONG DURATION</label>
         <div style={styles.toggleRow}>
-          <button
-            style={{
-              ...styles.styleBtn,
-              ...(settings.deliveryStyle === DELIVERY_STYLES.classic ? styles.styleBtnActive : {}),
-            }}
-            onClick={() => update({ deliveryStyle: DELIVERY_STYLES.classic })}
-          >
-            <span style={styles.styleBtnIcon}>🎩</span>
-            <span style={styles.styleBtnTitle}>CLASSIC</span>
-            <span style={styles.styleBtnSub}>Bob Sheppard</span>
-          </button>
-          <button
-            style={{
-              ...styles.styleBtn,
-              ...(settings.deliveryStyle === DELIVERY_STYLES.hype ? styles.styleBtnActive : {}),
-            }}
-            onClick={() => update({ deliveryStyle: DELIVERY_STYLES.hype })}
-          >
-            <span style={styles.styleBtnIcon}>🔥</span>
-            <span style={styles.styleBtnTitle}>HYPE</span>
-            <span style={styles.styleBtnSub}>ESPN Energy</span>
-          </button>
+          {WALKUP_DURATIONS.map(sec => {
+            const isSelected = (settings.walkUpDuration ?? DEFAULT_WALKUP_DURATION) === sec;
+            return (
+              <button
+                key={sec}
+                style={{ ...styles.styleBtn, ...(isSelected ? styles.styleBtnActive : {}) }}
+                onClick={() => update({ walkUpDuration: sec })}
+              >
+                <span style={styles.styleBtnTitle}>{sec}s</span>
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      {/* Script Template */}
-      <div style={styles.field}>
-        <label style={styles.label}>ANNOUNCEMENT SCRIPT</label>
-        <textarea
-          style={styles.textarea}
-          value={settings.scriptTemplate}
-          onChange={e => update({ scriptTemplate: e.target.value })}
-          placeholder={DEFAULT_SCRIPT_TEMPLATE}
-          rows={3}
-          spellCheck={false}
-        />
-
-        {/* Variable chips */}
-        <div style={styles.tokenRow}>
-          <span style={styles.tokenLabel}>INSERT:</span>
-          {AVAILABLE_VARIABLES.map(v => (
-            <button
-              key={v.token}
-              style={styles.tokenChip}
-              onClick={() => insertToken(v.token)}
-              title={`Insert ${v.label}`}
-            >
-              {v.token}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Live Preview */}
-      <div style={styles.previewBox}>
-        <div style={styles.previewLabel}>PREVIEW</div>
-        <div style={styles.previewText}>"{previewText}"</div>
-        {roster?.length > 0 && (
-          <div style={styles.previewMeta}>
-            Using {previewPlayer.firstName} {previewPlayer.lastName} as example
-          </div>
-        )}
       </div>
 
       {/* Save */}
@@ -416,6 +502,10 @@ const styles = {
   previewBtnDisabled: {
     opacity: 0.5,
     cursor: 'default',
+  },
+  previewBtnPlaying: {
+    background: 'rgba(200,16,46,0.15)',
+    borderColor: '#c8102e',
   },
   saveBtn: {
     width: '100%',

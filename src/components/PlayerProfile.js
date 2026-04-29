@@ -100,9 +100,15 @@ export default function PlayerProfile({ player, updatePlayer, deletePlayer, onBa
         </div>
       </div>
 
-      <div className="input-group" style={{ marginTop: '14px' }}>
-        <label className="input-label">Phonetic Spelling <span style={{ color: '#555', textTransform: 'none', fontWeight: '400', fontFamily: 'sans-serif' }}>(for announcements)</span></label>
-        <input className="input-field" value={form.phoneticName} onChange={set('phoneticName')} placeholder='e.g. "Muh-KAY-luh"' />
+      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+        <div className="input-group" style={{ flex: 1, marginBottom: 0 }}>
+          <label className="input-label">Phonetic First Name</label>
+          <input className="input-field" value={form.phoneticFirst || ''} onChange={set('phoneticFirst')} placeholder='e.g. Juh-KOBE' />
+        </div>
+        <div className="input-group" style={{ flex: 1, marginBottom: 0 }}>
+          <label className="input-label">Phonetic Last Name</label>
+          <input className="input-field" value={form.phoneticLast || ''} onChange={set('phoneticLast')} placeholder='e.g. Nuh-JOLLY' />
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '10px' }}>

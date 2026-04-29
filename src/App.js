@@ -90,21 +90,6 @@ function AppInner() {
       </header>
 
       {/* Tab bar */}
-      <nav className="tab-bar">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`tab-btn ${currentTab === tab.id ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab(tab.id);
-              if (tab.id !== 'roster') setSelectedPlayerId(null);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
       <main className="app-content" style={{ width: '100%', boxSizing: 'border-box' }}>
         {renderContent()}
       </main>

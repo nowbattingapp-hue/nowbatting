@@ -167,7 +167,8 @@ export default function GameDay({ players }) {
   const [phase, setPhase] = useState(null);
   const stopAnnouncementRef = useRef(null);
   const hypeSoundRef = useRef(null);
-  const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
+  const walkUpTimerRef = useRef(null);
+  const { startWalkUpSoft, rampWalkUpToFull, stopWalkUp, fadeOutWalkUp, connected, isPremium, sdkReady, isIOS, primeWalkUpAudio } = useSpotify();
   const { activeTeam } = useTeam();
 
   // ── Lineup order ─────────────────────────────────────────────────────────────
@@ -211,7 +212,11 @@ export default function GameDay({ players }) {
     const hype = hypeSoundRef.current;
     hypeSoundRef.current = null;
     if (hype && hype !== 'loading') hype.stop();
-    stopWalkUp();
+    if (walkUpTimerRef.current) {
+      clearTimeout(walkUpTimerRef.current);
+      walkUpTimerRef.current = null;
+    }
+    fadeOutWalkUp(1.5);
     setActiveId(null);
     setPhase(null);
   }
@@ -269,6 +274,13 @@ export default function GameDay({ players }) {
       if (player.walkUpSong) {
         setPhase('walkup');
         rampWalkUpToFull(2);
+        const teamId = getActiveTeamId();
+        const announceSettings = getTeamAnnouncementSettings(teamId);
+        const duration = (announceSettings.walkUpDuration ?? 15) * 1000;
+        walkUpTimerRef.current = setTimeout(() => {
+          walkUpTimerRef.current = null;
+          stopEverything();
+        }, duration);
       } else {
         setActiveId(null);
         setPhase(null);
@@ -299,15 +311,16 @@ export default function GameDay({ players }) {
       const teamId = getActiveTeamId();
       const announceSettings = getTeamAnnouncementSettings(teamId);
       const scriptText = resolveScript(announceSettings.scriptTemplate, player, activeTeam);
-      const { text, voiceSettings } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
+      const { text, voiceSettings, isSSML } = buildAnnouncementPrompt(scriptText, announceSettings.deliveryStyle);
       const { voiceId } = announceSettings;
-      console.log('[GameDay] announcement text:', text);
+      console.log('[GameDay] announcement text:', text, '| isSSML:', isSSML);
       const stop = playWithFallback(text, {
         onStart: () => setPhase('announcing'),
         onHalfway,
         onEnd,
         voiceSettings,
         voiceId,
+        isSSML,
       });
       stopAnnouncementRef.current = stop;
     }
